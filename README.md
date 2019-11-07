@@ -1,6 +1,6 @@
 # TNS_upload
 
-Tools to upload young SN candidates to TNS.
+Tools to upload young SN candidates to TNS. Please clone this repository to access the notebooks below.
 
 * The [SNhunter tutorial notebook](https://github.com/alercebroker/TNS_upload/blob/master/SNhunter_tutorial.ipynb) contains instructions on how to check candidates in the SN hunter and how to send them to the Transient Name Server (TNS)
 
