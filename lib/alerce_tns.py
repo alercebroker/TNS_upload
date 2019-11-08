@@ -59,7 +59,7 @@ class alerce_tns(AlerceAPI):
         # start aladin widget
         self.start_aladin()
 
-        sn = self.get_stats(oid)
+        sn = self.get_stats(oid, format='pandas')
         self.aladin.target = "%f %f" % (sn.meanra, sn.meandec)
         co = coordinates.SkyCoord(ra=sn.meanra, dec=sn.meandec, unit=(u.deg, u.deg), frame='fk5')
 
@@ -266,7 +266,7 @@ class alerce_tns(AlerceAPI):
         # get stats
         if verbose:
             print("Getting stats for object %s" % oid)
-        stats = self.get_stats(oid, verbose)
+        stats = self.get_stats(oid, format='pandas')
 
         # RA, DEC
         RA, DEC = float(stats.meanra), float(stats.meandec)
@@ -288,8 +288,8 @@ class alerce_tns(AlerceAPI):
         # get detections and non-detections
         if verbose:
                 print("Getting detections and non-detections for object %s" % oid)
-        detections = self.get_detections(oid)
-        non_detections = self.get_non_detections(oid)
+        detections = self.get_detections(oid, format='pandas')
+        non_detections = self.get_non_detections(oid, format='pandas')
 
         # display latest non-detections
         # filters: 110 (g-ZTF), 111 (r-ZTF), 112 (i-ZTF)
@@ -388,7 +388,7 @@ class alerce_tns(AlerceAPI):
         tns = self.get_tns(api_key, oid)
         if tns:
             print("Astronomical transient is known:", tns, "\n")
-            if int(tns[0]["objname"][:4]) > Time(stats.firstmjd.values, format='mjd').datetime[0].year - 4.: # match is within last 3 years
+            if int(tns[0]["objname"][:4]) > Time(stats.firstmjd, format='mjd').datetime.year - 4.: # match is within last 3 years
                 if not test:
                     return False
             else:
@@ -450,7 +450,7 @@ class alerce_tns(AlerceAPI):
         
         # get ra, dec
         if oid != self.oid:
-            self.get_stats(oid)
+            self.get_stats(oid, format='pandas')
         
         url_tns_api="https://wis-tns.weizmann.ac.il/api/get"
         search_url=url_tns_api+'/search'
