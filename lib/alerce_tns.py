@@ -289,7 +289,7 @@ class alerce_tns(AlerceAPI):
         if verbose:
                 print("Getting detections and non-detections for object %s" % oid)
         detections = self.get_detections(oid, format='pandas')
-        non_detections = self.get_non_detections(oid, format='pandas')
+        non_detections = self.get_non_detections(oid, format='pandas') # note that new API returns none if not non detections
 
         # display latest non-detections
         # filters: 110 (g-ZTF), 111 (r-ZTF), 112 (i-ZTF)
@@ -297,9 +297,11 @@ class alerce_tns(AlerceAPI):
 
         # boolean to note whether there are detections
         has_non_detections = True
-        
+        if non_detections is None:
+            has_non_detections = False
+
         # get last non-detection
-        if non_detections.shape[0] > 0:
+        if has_non_detections and non_detections.shape[0] > 0:
 
             mjd_last_non_det = non_detections[non_detections.index < float(stats.firstmjd)].index.max()
             if np.isfinite(mjd_last_non_det):
