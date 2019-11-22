@@ -396,6 +396,11 @@ class alerce_tns(AlerceAPI):
             else:
                 print("Match is from more than 3 years before, sending to TNS anyway...")
 
+        # if any detection is negative skip this candidate
+        if np.sum(detections.isdiffpos == -1) > 0:
+            print("WARNING: there are %i negative detections, skipping candidate" % np.sum(detections.isdiffpos == -1))
+            return False
+        
         # photometry
         photometry = {"photometry_group": {}}
         for idx, candid in enumerate(detections.index):
