@@ -249,8 +249,11 @@ class alerce_tns(AlerceAPI):
         print("http://alerce.online/object/%s" % oid)
         
         # ALeRCE groupid
-        groupid = "74" # The ALeRCE broker -> change to ALeRCE
+        reporting_group_id = "74" # ALeRCE
         
+        # ALeRCE groupid
+        discovery_data_source_id = "48" # ZTF
+
         # internal name
         internal_name = oid
         
@@ -429,7 +432,8 @@ class alerce_tns(AlerceAPI):
                     "error": "%s" % float(detections.iloc[0].sigmadec),
                     "units": "arcsec"
                     },
-                "groupid": groupid,
+                "reporting_group_id": reporting_group_id,
+                "discovery_data_source_id": discovery_data_source_id,
                 "reporter": reporter,
                 "discovery_datetime": discovery_datetime,
                 "at_type": at_type,
