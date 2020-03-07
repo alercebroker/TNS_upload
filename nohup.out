@@ -1,0 +1,22 @@
+[I 18:52:59.040 NotebookApp] JupyterLab extension loaded from /home/rcarrasco/anaconda3/lib/python3.7/site-packages/jupyterlab
+[I 18:52:59.040 NotebookApp] JupyterLab application directory is /home/rcarrasco/anaconda3/share/jupyter/lab
+[I 18:52:59.042 NotebookApp] Serving notebooks from local directory: /home/rcarrasco/Projects/TNS_upload
+[I 18:52:59.042 NotebookApp] The Jupyter Notebook is running at:
+[I 18:52:59.042 NotebookApp] http://localhost:8888/?token=a8b229669a756ad9106945e10a884871f81175a23c85e54c
+[I 18:52:59.042 NotebookApp]  or http://127.0.0.1:8888/?token=a8b229669a756ad9106945e10a884871f81175a23c85e54c
+[I 18:52:59.042 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[C 18:52:59.044 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///home/rcarrasco/.local/share/jupyter/runtime/nbserver-24032-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:8888/?token=a8b229669a756ad9106945e10a884871f81175a23c85e54c
+     or http://127.0.0.1:8888/?token=a8b229669a756ad9106945e10a884871f81175a23c85e54c
+[W 18:53:09.126 NotebookApp] Notebook Untitled.ipynb is not trusted
+[I 18:53:09.413 NotebookApp] Kernel started: 499e730a-6ca7-4297-94da-30c46dbf608a
+[I 18:55:09.446 NotebookApp] Saving file at /Untitled.ipynb
+[W 18:55:09.446 NotebookApp] Notebook Untitled.ipynb is not trusted
+[I 18:55:10.274 NotebookApp] Starting buffering for 499e730a-6ca7-4297-94da-30c46dbf608a:33a5be26c5dc498d833314872f6fb272
+[C 19:00:27.174 NotebookApp] received signal 15, stopping
+[I 19:00:27.174 NotebookApp] Shutting down 1 kernel
+[I 19:00:27.576 NotebookApp] Kernel shutdown: 499e730a-6ca7-4297-94da-30c46dbf608a
