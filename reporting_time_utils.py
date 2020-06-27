@@ -20,7 +20,7 @@ class tns_scraping(object):
         return date, time
 
 if __name__ == "__main__":
-    
+    e
 
 
 
