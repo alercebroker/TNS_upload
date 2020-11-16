@@ -34,6 +34,7 @@ from alerce.api import AlerceAPI
 # add redshift to Simbad query
 customSimbad = Simbad()
 customSimbad.add_votable_fields('z_value')
+customSimbad.TIMEOUT = 5 # 5 seconds
 
 class alerce_tns(AlerceAPI):
     'module to interact with alerce api to send TNS report'
@@ -66,7 +67,7 @@ class alerce_tns(AlerceAPI):
         if ned:
             try:
                 self.info.value = "Querying NED..."
-                table_ned = Ned.query_region(co, radius=0.02 * u.deg) #0.02
+                table_ned = Ned.query_region(co, radius=0.025 * u.deg) #0.02
                 if table_ned:
                     table_ned["cat_name"] = Column(["NED"], name="cat_name")
                     self.aladin.add_table(table_ned)
@@ -383,6 +384,7 @@ class alerce_tns(AlerceAPI):
         # prepare remarks
         if has_non_detections and dmdtstr != "":
             remarks = "Early SN candidate%s classified by ALeRCE using the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % (dmdtstr, oid)
+            #remarks = "Early SN candidate classified by ALeRCE using the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % (oid)
         else:
             remarks = "SN candidate classified by ALeRCE using the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % oid
         print(remarks)
@@ -392,6 +394,7 @@ class alerce_tns(AlerceAPI):
             print("Doing TNS xmatches for object %s" % oid)
         tns = self.get_tns(api_key, oid)
         if tns:
+            #print(self.get_tns_discoverer_groupid(api_key, oid))
             print("Astronomical transient is known:", tns, "\n")
             if int(tns[0]["objname"][:4]) > Time(stats.firstmjd, format='mjd').datetime.year - 4.: # match is within last 3 years
                 if not test:
@@ -401,6 +404,7 @@ class alerce_tns(AlerceAPI):
 
         # if any detection is negative skip this candidate
         if np.sum(detections.isdiffpos == -1) > 0:
+            print(detections.isdiffpos)
             print("WARNING: there are %i negative detections, skipping candidate" % np.sum(detections.isdiffpos == -1))
             return False
         
@@ -470,7 +474,7 @@ class alerce_tns(AlerceAPI):
         search_obj=OrderedDict(search_obj)
         search_data=[('api_key',(None, api_key)), ('data',(None,json.dumps(search_obj)))]
         try:
-            response=requests.post(search_url, files=search_data, timeout=(2, 5))
+            response=requests.post(search_url, files=search_data, timeout=(5, 10))
             reply = response.json()["data"]["reply"]
             if reply != []:
                 return reply
@@ -479,6 +483,30 @@ class alerce_tns(AlerceAPI):
         except Exception as e:
             return False
 
+    # get TNS object type
+    def get_tns_discoverer_groupid(self, api_key, oid):
+        objname = self.get_tns(api_key, oid)[0]["objname"]
+    
+        data = {
+            "objname": objname,
+        }
+    
+        # get object type
+        json_data = [('api_key', (None, api_key)),
+                     ('data', (None, json.dumps(data)))]
+
+        url_tns_api="https://wis-tns.weizmann.ac.il/api/get"
+        json_url = url_tns_api + '/object'
+        response = requests.post(json_url, files = json_data)
+
+        return response.json()['data']['reply']['discovery_data_source']['groupid'] == 18
+        #try:
+        #    object_type = response.json()["data"]["reply"]["object_type"]["name"]
+        #except:
+        #    object_type = None
+        #
+        #return objname, object_type
+        
 
     # function for changing data to json format
     def format_to_json(self, source):
@@ -502,11 +530,12 @@ class alerce_tns(AlerceAPI):
             
             # send json report using request module
             response = requests.post(json_url, files = json_data)
-            
+
             # return response
             return response
         
         except Exception as e:
+
             return [None,'Error message : \n'+str(e)]
 
         
