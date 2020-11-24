@@ -380,13 +380,14 @@ class alerce_tns(AlerceAPI):
                 "archiveid": "0",
                 "archival_remarks": "ZTF non-detection limits not available"
             }
-        
+
+
         # prepare remarks
         if has_non_detections and dmdtstr != "":
-            remarks = "Early SN candidate%s classified by ALeRCE using the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % (dmdtstr, oid)
+            remarks = "Early SN candidate%s classified using ALeRCE's stamp classifier - see http://arxiv.org/abs/2008.03309 - and the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % (dmdtstr, oid)
             #remarks = "Early SN candidate classified by ALeRCE using the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % (oid)
         else:
-            remarks = "SN candidate classified by ALeRCE using the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % oid
+            remarks = "SN candidate classified using ALeRCE's stamp classifier - see http://arxiv.org/abs/2008.03309 - and the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % oid
         print(remarks)
 
         # check TNS
