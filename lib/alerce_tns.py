@@ -395,12 +395,16 @@ class alerce_tns(AlerceAPI):
             print("Doing TNS xmatches for object %s" % oid)
         tns = self.get_tns(api_key, oid)
         if tns:
-            #print(self.get_tns_discoverer_groupid(api_key, oid))
             print("Astronomical transient is known:", tns, "\n")
-            if int(tns[0]["objname"][:4]) > Time(stats.firstmjd, format='mjd').datetime.year - 4.: # match is within last 3 years
+            info = self.get_tns_reporting_info(api_key, oid)
+            print("Reporting info:", info)
+            if oid in info["internal_names"]: # reported using ZTF internal name, do not report
+                print("Object was reported using the same ZTF internal name, do not report.")
+                return False
+            if int(tns[0]["objname"][:4]) > Time(stats.firstmjd, format='mjd').datetime.year - 4.: # match is within last 3 years, do not report
                 if not test:
                     return False
-            else:
+            else: # match older than 3 years, report
                 print("Match is from more than 3 years before, sending to TNS anyway...")
 
         # if any detection is negative skip this candidate
@@ -468,7 +472,7 @@ class alerce_tns(AlerceAPI):
         if oid != self.oid:
             self.get_stats(oid, format='pandas')
         
-        url_tns_api="https://wis-tns.weizmann.ac.il/api/get"
+        url_tns_api="https://www.wis-tns.org/api/get"
         search_url=url_tns_api+'/search'
         search_obj=[("ra", "%f" % self.meanra), ("dec", "%f" % self.meandec), ("radius","5"), ("units","arcsec"),
             ("objname",""), ("internal_name","")]
@@ -485,22 +489,24 @@ class alerce_tns(AlerceAPI):
             return False
 
     # get TNS object type
-    def get_tns_discoverer_groupid(self, api_key, oid):
+    def get_tns_reporting_info(self, api_key, oid):
         objname = self.get_tns(api_key, oid)[0]["objname"]
     
         data = {
-            "objname": objname,
+            "objname": objname
         }
     
         # get object type
         json_data = [('api_key', (None, api_key)),
                      ('data', (None, json.dumps(data)))]
 
-        url_tns_api="https://wis-tns.weizmann.ac.il/api/get"
+        url_tns_api="https://www.wis-tns.org/api/get" #"https://wis-tns.weizmann.ac.il/api/get" 
         json_url = url_tns_api + '/object'
         response = requests.post(json_url, files = json_data)
 
-        return response.json()['data']['reply']['discovery_data_source']['groupid'] == 18
+        return {"discoverer": response.json()['data']['reply']['discovery_data_source']['group_name'],
+                "reporter": response.json()['data']['reply']['reporting_group']['group_name'],
+                "internal_names": response.json()['data']['reply']['internal_names'].split(", ")}
         #try:
         #    object_type = response.json()["data"]["reply"]["object_type"]["name"]
         #except:
