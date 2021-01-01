@@ -401,11 +401,13 @@ class alerce_tns(AlerceAPI):
             if oid in info["internal_names"]: # reported using ZTF internal name, do not report
                 print("Object was reported using the same ZTF internal name, do not report.")
                 return False
-            if int(tns[0]["objname"][:4]) > Time(stats.firstmjd, format='mjd').datetime.year - 4.: # match is within last 3 years, do not report
-                if not test:
-                    return False
-            else: # match older than 3 years, report
-                print("Match is from more than 3 years before, sending to TNS anyway...")
+            else:
+                print("Object was not reported using the same ZTF internal name, report.")
+            #if int(tns[0]["objname"][:4]) > Time(stats.firstmjd, format='mjd').datetime.year - 4.: # match is within last 3 years, do not report
+            #    if not test:
+            #        return False
+            #else: # match older than 3 years, report
+            #    print("Match is from more than 3 years before, sending to TNS anyway...")
 
         # if any detection is negative skip this candidate
         if np.sum(detections.isdiffpos == -1) > 0:
