@@ -398,11 +398,14 @@ class alerce_tns(AlerceAPI):
             print("Astronomical transient is known:", tns, "\n")
             info = self.get_tns_reporting_info(api_key, oid)
             print("Reporting info:", info)
-            if oid in info["internal_names"]: # reported using ZTF internal name, do not report
-                print("Object was reported using the same ZTF internal name, do not report.")
-                return False
+            if not info["internal_names"] is None:
+                if oid in info["internal_names"]: # reported using ZTF internal name, do not report
+                    print("Object was reported using the same ZTF internal name, do not report.")
+                    return False
+                else:
+                    print("Object was not reported using the same ZTF internal name, report.")
             else:
-                print("Object was not reported using the same ZTF internal name, report.")
+                print("Warning: No internal names were reported.")
             #if int(tns[0]["objname"][:4]) > Time(stats.firstmjd, format='mjd').datetime.year - 4.: # match is within last 3 years, do not report
             #    if not test:
             #        return False
@@ -505,10 +508,17 @@ class alerce_tns(AlerceAPI):
         url_tns_api="https://www.wis-tns.org/api/get" #"https://wis-tns.weizmann.ac.il/api/get" 
         json_url = url_tns_api + '/object'
         response = requests.post(json_url, files = json_data)
+        group_name = response.json()['data']['reply']['discovery_data_source']['group_name']
+        reporter = response.json()['data']['reply']['reporting_group']['group_name'],
+        internal_names = response.json()['data']['reply']['internal_names']
+        try:
+            internal_names = internal_names.split(", ")
+        except:
+            True
 
-        return {"discoverer": response.json()['data']['reply']['discovery_data_source']['group_name'],
+        return {"discoverer": group_name,
                 "reporter": response.json()['data']['reply']['reporting_group']['group_name'],
-                "internal_names": response.json()['data']['reply']['internal_names'].split(", ")}
+                "internal_names": internal_names}
         #try:
         #    object_type = response.json()["data"]["reply"]["object_type"]["name"]
         #except:
