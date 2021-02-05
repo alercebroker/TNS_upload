@@ -148,7 +148,12 @@ class alerce_tns(AlerceAPI):
         if data["data"]["cat_name"] == "NED":
             self.candidate_host_names[self.current_oid] = data["data"]["Object Name"]
             if "Redshift" in data["data"].keys():
-                self.candidate_host_redshifts[self.current_oid] = data["data"]["Redshift"]
+                isphotoz = False
+                if "Redshift Flag" in data["data"].keys():
+                    if data["data"]["Redshift Flag"] in ["PHOT"]:
+                        isphotoz = True
+                if report_photoz or not isphotoz:
+                    self.candidate_host_redshifts[self.current_oid] = data["data"]["Redshift"]
         elif data["data"]["cat_name"] == "Simbad":
             self.candidate_host_names[self.current_oid] = data["data"]["MAIN_ID"]
             if "Z_VALUE" in data["data"].keys():
