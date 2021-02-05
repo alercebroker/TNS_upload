@@ -143,6 +143,7 @@ class alerce_tns(AlerceAPI):
     def process_objectClicked(self, data):
         'move to following object when clicking over an object'
 
+        report_photoz = False
         # save clicked information
         if data["data"]["cat_name"] == "NED":
             self.candidate_host_names[self.current_oid] = data["data"]["Object Name"]
@@ -156,8 +157,8 @@ class alerce_tns(AlerceAPI):
             self.candidate_host_names[self.current_oid] = self.hosts[data["data"]["objid"]]["host_name"]
             if "specz" in self.hosts[data["data"]["objid"]].keys():
                 self.candidate_host_redshifts[self.current_oid] = self.hosts[data["data"]["objid"]]["specz"]
-            #elif "photoz" in self.hosts[data["data"]["objid"]].keys():
-            #    self.candidate_host_redshifts[self.current_oid] = self.hosts[data["data"]["objid"]]["photoz"]
+            elif "photoz" in self.hosts[data["data"]["objid"]].keys() and report_photoz:
+                self.candidate_host_redshifts[self.current_oid] = self.hosts[data["data"]["objid"]]["photoz"]
 
         # move to next candidate
         try:
