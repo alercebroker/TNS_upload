@@ -156,8 +156,8 @@ class alerce_tns(AlerceAPI):
             self.candidate_host_names[self.current_oid] = self.hosts[data["data"]["objid"]]["host_name"]
             if "specz" in self.hosts[data["data"]["objid"]].keys():
                 self.candidate_host_redshifts[self.current_oid] = self.hosts[data["data"]["objid"]]["specz"]
-            elif "photoz" in self.hosts[data["data"]["objid"]].keys():
-                self.candidate_host_redshifts[self.current_oid] = self.hosts[data["data"]["objid"]]["photoz"]
+            #elif "photoz" in self.hosts[data["data"]["objid"]].keys():
+            #    self.candidate_host_redshifts[self.current_oid] = self.hosts[data["data"]["objid"]]["photoz"]
 
         # move to next candidate
         try:
