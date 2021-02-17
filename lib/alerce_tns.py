@@ -43,6 +43,7 @@ class alerce_tns(AlerceAPI):
         
         super().__init__(**kwargs)
         self.hosts = {} # known hosts not to query again in SDSS
+        self.nremaining = 0 # already seen candidates
 
     def start_aladin(self, survey="P/PanSTARRS/DR1/color-z-zg-g", layout_width=70, fov=0.025):
         'Start a pyaladin window (for jupyter notebooks) together with an information window'
@@ -116,7 +117,6 @@ class alerce_tns(AlerceAPI):
         self.aladin.add_listener('objectClicked', self.process_objectClicked)
         self.aladin.add_listener('objectHovered', self.process_objectHovered)
 
-        
     def select_hosts(self, candidates, ned=True, simbad=True, SDSSDR15=True, catsHTM=True, vizier=False):
         'check a list of object ids using an iterator'
 
@@ -129,6 +129,7 @@ class alerce_tns(AlerceAPI):
         self.candidate_host_names = {}
         self.candidate_host_redshifts = {}
         self.candidate_iterator = iter(candidates)
+        self.nremaining = len(candidates)
 
         # iterate over candidates
         try:
@@ -168,6 +169,8 @@ class alerce_tns(AlerceAPI):
         # move to next candidate
         try:
             if hasattr(self, "candidate_iterator"):
+                self.nremaining -= 1
+                print("%i candidates remaining" % self.nremaining)
                 oid = next(self.candidate_iterator)
                 self.current_oid = oid
                 self.view_object(oid, ned=self.do_ned, simbad=self.do_simbad, SDSSDR15=self.do_SDSSDR15, catsHTM=self.do_catsHTM, vizier=self.do_vizier)
