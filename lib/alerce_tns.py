@@ -223,17 +223,18 @@ class alerce_tns(AlerceAPI):
         if not "candidate_host_source" in locals():
             candidate_host_source = "NULL"
 
-        self.candidate_hosts = pd.concat([pd.DataFrame([[candidate_host_name,
-                                                         candidate_host_ra,
-                                                         candidate_host_dec,
-                                                         candidate_host_source,
-                                                         candidate_host_redshift,
-                                                         candidate_host_redshift_error,
-                                                         candidate_host_redshift_type]],
-                                                       columns = ["host_name", "host_ra", "host_dec", "host_source",
-                                                                  "host_redshift", "host_redshift_error", "host_redshift_type"],
-                                                       index = [self.current_oid]),
-                                          self.candidate_hosts])
+        newdf = pd.DataFrame([[candidate_host_name,
+                               candidate_host_ra,
+                               candidate_host_dec,
+                               candidate_host_source,
+                               candidate_host_redshift,
+                               candidate_host_redshift_error,
+                               candidate_host_redshift_type]],
+                             columns = ["host_name", "host_ra", "host_dec", "host_source",
+                                        "host_redshift", "host_redshift_error", "host_redshift_type"],
+                             index = [self.current_oid])
+        newdf.index.name = "oid"
+        self.candidate_hosts = pd.concat([newdf, self.candidate_hosts])
         display(self.candidate_hosts.head(1))
 
         # move to next candidate
