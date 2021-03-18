@@ -135,13 +135,6 @@ class alerce_tns(AlerceAPI):
         self.do_SDSSDR15 = SDSSDR15
         self.do_catsHTM = catsHTM
         self.do_vizier = vizier
-        #self.candidate_host_name = {}
-        #self.candidate_host_ra = {}
-        #self.candidate_host_dec = {}
-        #self.candidate_host_source = {}
-        #self.candidate_host_redshift = {}
-        #self.candidate_host_redshift_error = {}
-        #self.candidate_host_redshift_type = {}
         self.candidate_hosts = pd.DataFrame()
         self.candidate_iterator = iter(candidates)
         self.nremaining = len(candidates)
@@ -223,14 +216,25 @@ class alerce_tns(AlerceAPI):
         if not "candidate_host_source" in locals():
             candidate_host_source = "NULL"
 
+        # get candidate positionstats
+        stats = self.get_stats(self.current_oid, format='pandas')
+        cand_ra, cand_dec = float(stats.meanra), float(stats.meandec)
+        # compute offset to galaxy
+        if candidate_host_ra != "NULL" and candidate_host_dec != "NULL":
+            candidate_host_offset = coordinates.SkyCoord(candidate_host_ra * u.deg, candidate_host_dec * u.deg, frame='icrs').separation(
+                    coordinates.SkyCoord(cand_ra * u.deg, cand_dec * u.deg, frame='icrs')).arcsecond
+        else:
+            candidate_host_offset = "NULL"
+
         newdf = pd.DataFrame([[candidate_host_name,
                                candidate_host_ra,
                                candidate_host_dec,
+                               candidate_host_offset,
                                candidate_host_source,
                                candidate_host_redshift,
                                candidate_host_redshift_error,
                                candidate_host_redshift_type]],
-                             columns = ["host_name", "host_ra", "host_dec", "host_source",
+                             columns = ["host_name", "host_ra", "host_dec", "host_offset", "host_source",
                                         "host_redshift", "host_redshift_error", "host_redshift_type"],
                              index = [self.current_oid])
         newdf.index.name = "oid"
@@ -703,20 +707,24 @@ class alerce_tns(AlerceAPI):
         report["altdata"]["alerce"]["obj_type"] = "sn_candidate"
         report["altdata"]["alerce"]["obj_identification"] = "stamp_classifier+visual_inspection"
         if self.candidate_hosts.loc[oid].host_name != "NULL":
-            report["altdata"]["alerce"]["host_name"] = self.candidate_hosts.loc[oid].host_name
-            report["altdata"]["alerce"]["host_identification"] = "visual_inspection"
-        if self.candidate_hosts.loc[oid].host_ra != "NULL":
-            report["altdata"]["alerce"]["host_ra"] = float(self.candidate_hosts.loc[oid].host_ra)
-        if self.candidate_hosts.loc[oid].host_dec != "NULL":
-            report["altdata"]["alerce"]["host_dec"] = float(self.candidate_hosts.loc[oid].host_dec)
-        if self.candidate_hosts.loc[oid].host_source != "NULL":
-            report["altdata"]["alerce"]["host_source"] = self.candidate_hosts.loc[oid].host_source
-        if self.candidate_hosts.loc[oid].host_redshift != "NULL":
-            report["altdata"]["alerce"]["host_redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
-        if self.candidate_hosts.loc[oid].host_redshift_error != "NULL":
-            report["altdata"]["alerce"]["host_redshift_error"] = float(self.candidate_hosts.loc[oid].host_redshift_error)
-        if self.candidate_hosts.loc[oid].host_redshift_type != "NULL":
-            report["altdata"]["alerce"]["host_redshift_type"] = self.candidate_hosts.loc[oid].host_redshift_type
+            report["altdata"]["alerce"]["host"] = {}
+            report["altdata"]["alerce"]["host"]["name"] = self.candidate_hosts.loc[oid].host_name
+            report["altdata"]["alerce"]["host"]["identification"] = "visual_inspection"
+            if self.candidate_hosts.loc[oid].host_ra != "NULL" and self.candidate_hosts.loc[oid].host_dec != "NULL":
+                host_ra = float(self.candidate_hosts.loc[oid].host_ra)
+                host_dec = float(self.candidate_hosts.loc[oid].host_dec)
+                report["altdata"]["alerce"]["host"]["ra"] = host_ra
+                report["altdata"]["alerce"]["host"]["dec"] = host_dec
+                if self.candidate_hosts.loc[oid].host_offset != "NULL":
+                    report["altdata"]["alerce"]["host"]["offset_arcsec"] = self.candidate_hosts.loc[oid].host_offset # arcseconds
+            if self.candidate_hosts.loc[oid].host_source != "NULL":
+                report["altdata"]["alerce"]["host"]["source"] = self.candidate_hosts.loc[oid].host_source
+            if self.candidate_hosts.loc[oid].host_redshift != "NULL":
+                report["altdata"]["alerce"]["host"]["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
+            if self.candidate_hosts.loc[oid].host_redshift_error != "NULL":
+                report["altdata"]["alerce"]["host"]["redshift_error"] = float(self.candidate_hosts.loc[oid].host_redshift_error)
+            if self.candidate_hosts.loc[oid].host_redshift_type != "NULL":
+                report["altdata"]["alerce"]["host"]["redshift_type"] = self.candidate_hosts.loc[oid].host_redshift_type
         report["altdata"]["alerce"]["reporters"] = reporter
         report["altdata"]["alerce"]["url"] = "https://alerce.online/object/%s" % oid
 
