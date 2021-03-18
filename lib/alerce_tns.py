@@ -733,7 +733,7 @@ class alerce_tns(AlerceAPI):
         # check if candidate is in skyportal
         if self.isin_skyportal(url, token, oid):
             print("%s is in skyportal" % oid)
-            return False
+            #return False
         
         # get ALeRCE stats
         if verbose:
@@ -745,7 +745,7 @@ class alerce_tns(AlerceAPI):
         report["ra"] = float(stats.meanra)
         report["dec"] = float(stats.meandec)
         report["id"] = oid            # Name of the object
-        if self.candidate_hosts.loc[oid].host_redshift != "NULL" and (report_photoz_skyportal or self.candidate_hosts.loc[oid].host_redshift_type == "specz"):
+        if self.candidate_hosts.loc[oid].host_redshift != "NULL" and (report_photoz_skyportal or self.candidate_hosts.loc[oid].host_redshift_spec):
             report["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
         report["origin"] = "ZTF"        # Origin of the object.
         report["filter_ids"] = [self.get_skyportal_id(url, token)]
