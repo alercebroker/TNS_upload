@@ -64,7 +64,7 @@ class alerce_tns(AlerceAPI):
         display(self.box)
 
         
-    def view_object(self, oid, ned=True, simbad=True, SDSSDR15=True, catsHTM=True, vizier=False):
+    def view_object(self, oid, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False):
         'display an object in aladin, query different catalogs and show their information when hovering with the mouse'
         
         # start aladin widget
@@ -92,15 +92,15 @@ class alerce_tns(AlerceAPI):
                     self.aladin.add_table(table_simbad)
             except:
                 print("Cannot connect with Simbad...")
-        if SDSSDR15:
+        if SDSSDR16:
             try:
-                self.info.value= "Querying SDSS-DR15..."
-                table_SDSSDR15 = self.get_SDSSDR15(float(sn.meanra), float(sn.meandec), 20.)
-                if table_SDSSDR15:
-                    table_SDSSDR15["cat_name"] = Column(["SDSSDR15"], name="cat_name")
-                    self.aladin.add_table(table_SDSSDR15)
+                self.info.value= "Querying SDSS-DR16..."
+                table_SDSSDR16 = self.get_SDSSDR16(float(sn.meanra), float(sn.meandec), 20.)
+                if table_SDSSDR16:
+                    table_SDSSDR16["cat_name"] = Column(["SDSSDR16"], name="cat_name")
+                    self.aladin.add_table(table_SDSSDR16)
             except:
-                print("Cannot query SDSS-DR15")
+                print("Cannot query SDSS-DR16")
         if catsHTM:
             try:
                 self.info.value = "Querying catsHTM..."
@@ -126,13 +126,13 @@ class alerce_tns(AlerceAPI):
         self.aladin.add_listener('objectClicked', self.process_objectClicked)
         self.aladin.add_listener('objectHovered', self.process_objectHovered)
 
-    def select_hosts(self, candidates, ned=True, simbad=True, SDSSDR15=True, catsHTM=True, vizier=False):
+    def select_hosts(self, candidates, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False):
         'check a list of object ids using an iterator'
 
         # copy survey selections
         self.do_ned = ned
         self.do_simbad = simbad
-        self.do_SDSSDR15 = SDSSDR15
+        self.do_SDSSDR16 = SDSSDR16
         self.do_catsHTM = catsHTM
         self.do_vizier = vizier
         self.candidate_hosts = pd.DataFrame()
@@ -146,7 +146,7 @@ class alerce_tns(AlerceAPI):
         except StopIteration:
             del self.iterator
     
-        self.view_object(oid, ned=self.do_ned, simbad=self.do_simbad, SDSSDR15=self.do_SDSSDR15, catsHTM=self.do_catsHTM, vizier=self.do_vizier)
+        self.view_object(oid, ned=self.do_ned, simbad=self.do_simbad, SDSSDR16=self.do_SDSSDR16, catsHTM=self.do_catsHTM, vizier=self.do_vizier)
 
         
     def process_objectClicked(self, data):
@@ -165,23 +165,34 @@ class alerce_tns(AlerceAPI):
                         print("Ignoring redshift")
                     else:
                         candidate_host_redshift = data["data"]["Redshift"]
-                        if data["data"]["Redshift Flag"] in ["PHOT"]:
-                            candidate_host_redshift_type = "photoz"
+                        if data["data"]["Redshift Flag"] in ["", "SPEC"]:
+                            candidate_host_redshift_spec = True
                         else:
-                            candidate_host_redshift_type = "specz"
+                            candidate_host_redshift_spec = False
+                        candidate_host_redshift_type = data["data"]["Redshift Flag"]
         elif data["data"]["cat_name"] == "Simbad":
+            display(data["data"])
             coords = coordinates.SkyCoord("%s %s" % (data["data"]["RA"], data["data"]["DEC"]), unit=(u.hourangle, u.deg), frame='icrs')
             candidate_host_ra = coords.ra / u.deg
             candidate_host_dec = coords.dec / u.deg
             candidate_host_name = data["data"]["MAIN_ID"]
             if "Z_VALUE" in data["data"].keys():
-                if data["data"]["Z_VALUE"] in ["nan", "-99", "-999.0", "-9999.0"] or data["data"]["RVZ_ERROR"] != "nan": # based on experience, we only trust Simbad redshifts if they have an associated error
-                    print("Ignoring redshift")
-                else:
+                if not data["data"]["Z_VALUE"] in ["nan", "-99", "-999.0", "-9999.0"]:
                     candidate_host_redshift = data["data"]["Z_VALUE"]
-                    candidate_host_redshift_error = data["data"]["RVZ_ERROR"]
-                    candidate_host_redshift_type = "specz" # this assumes that Simbad only returns spectroscopic redshifts
-        elif data["data"]["cat_name"] == "SDSSDR15":
+                    if data["data"]["RVZ_ERROR"] != "nan": # based on experience, we only trust Simbad redshifts if they have an associated error
+                        candidate_host_redshift_spec = True
+                        if data["data"]["RVZ_TYPE"] == "z":
+                            candidate_host_redshift_error = data["data"]["RVZ_ERROR"]
+                        elif data["data"]["RVZ_TYPE"] == "v":
+                            cspeed = 299792. # km/s
+                            candidate_host_redshift_error = data["data"]["RVZ_ERROR"] / cspeed
+                        else:
+                            candidate_host_redshift_spec = False
+                    else:
+                        candidate_host_redshift_spec = False
+                    if "RVZ_QUAL" in data["data"].keys():
+                        candidate_host_redshift_type = data["data"]["RVZ_QUAL"]  # this assumes that Simbad only returns spectroscopic redshifts
+        elif data["data"]["cat_name"] == "SDSSDR16":
             objid = data["data"]["objid"]
             candidate_host_name = self.hosts_queried[objid]["host_name"]
             candidate_host_ra = data["data"]["ra"]
@@ -191,6 +202,7 @@ class alerce_tns(AlerceAPI):
                     print("Ignoring redshift...")
                 else:
                     candidate_host_redshift = self.hosts_queried[objid]["specz"]
+                    candidate_host_redshift_spec = True
                     candidate_host_redshift_error = self.hosts_queried[objid]["specz_err"]
                     candidate_host_redshift_type = "specz"
             elif "photoz" in self.hosts_queried[objid].keys():
@@ -199,6 +211,7 @@ class alerce_tns(AlerceAPI):
                 else:
                     candidate_host_redshift = self.hosts_queried[objid]["photoz"]
                     candidate_host_redshift_error = self.hosts_queried[objid]["photoz_err"]
+                    candidate_host_redshift_spec = False
                     candidate_host_redshift_type = "photoz"
 
         if not "candidate_host_name" in locals():
@@ -209,6 +222,8 @@ class alerce_tns(AlerceAPI):
             candidate_host_dec = "NULL"
         if not "candidate_host_redshift" in locals():
             candidate_host_redshift = "NULL"
+        if not "candidate_host_redshift_spec" in locals():
+            candidate_host_redshift_spec = "NULL"
         if not "candidate_host_redshift_error" in locals():
             candidate_host_redshift_error = "NULL"
         if not "candidate_host_redshift_type" in locals():
@@ -231,11 +246,12 @@ class alerce_tns(AlerceAPI):
                                candidate_host_dec,
                                candidate_host_offset,
                                candidate_host_source,
+                               candidate_host_redshift_spec,
                                candidate_host_redshift,
                                candidate_host_redshift_error,
                                candidate_host_redshift_type]],
                              columns = ["host_name", "host_ra", "host_dec", "host_offset", "host_source",
-                                        "host_redshift", "host_redshift_error", "host_redshift_type"],
+                                        "host_redshift_spec", "host_redshift", "host_redshift_error", "host_redshift_type"],
                              index = [self.current_oid])
         newdf.index.name = "oid"
         self.candidate_hosts = pd.concat([newdf, self.candidate_hosts])
@@ -248,7 +264,7 @@ class alerce_tns(AlerceAPI):
                 print("%i candidates remaining" % self.nremaining)
                 oid = next(self.candidate_iterator)
                 self.current_oid = oid
-                self.view_object(oid, ned=self.do_ned, simbad=self.do_simbad, SDSSDR15=self.do_SDSSDR15, catsHTM=self.do_catsHTM, vizier=self.do_vizier)
+                self.view_object(oid, ned=self.do_ned, simbad=self.do_simbad, SDSSDR16=self.do_SDSSDR16, catsHTM=self.do_catsHTM, vizier=self.do_vizier)
         except StopIteration:
             self.info.value =  "<div><font size='5'>All candidates revised</font></div>"
             print("\n\nSummary of host galaxies:")
@@ -257,11 +273,11 @@ class alerce_tns(AlerceAPI):
 
     def process_objectHovered(self, data):
         
-        if data["data"]["cat_name"] == "SDSSDR15":
+        if data["data"]["cat_name"] == "SDSSDR16":
             objid = data["data"]["objid"]
-            self.info.value =  "Querying SDSSDR15 object %s..." % str(objid)
+            self.info.value =  "Querying SDSSDR16 object %s..." % str(objid)
             if objid not in self.hosts_queried.keys():
-                self.hosts_queried[objid] = self.get_SDSSDR15_redshift(objid)
+                self.hosts_queried[objid] = self.get_SDSSDR16_redshift(objid)
             for k in self.hosts_queried[objid].keys():
                 data["data"][k] = self.hosts_queried[objid][k]
         output = "<h2>%s</h2>" % self.current_oid
@@ -285,8 +301,8 @@ class alerce_tns(AlerceAPI):
         output += "</table>"
         self.info.value =  '%s' % output
     
-    def get_SDSSDR15(self, ra, dec, radius):
-        'get galaxy crossmatch from SDSS DR15 using SDSS DR15 API'
+    def get_SDSSDR16(self, ra, dec, radius):
+        'get galaxy crossmatch from SDSS DR16 using SDSS DR16 API'
         
         params = {
             "ra": "%f" % ra,
@@ -294,8 +310,8 @@ class alerce_tns(AlerceAPI):
             "sr": "%f" % (radius / 60.),
             "format": "csv"
         }
-        SDSS_DR15_url = "http://skyserver.sdss.org/dr15/SkyServerWS"
-        r = requests.get(url = "%s/ConeSearch/ConeSearchService" % SDSS_DR15_url, params = params, timeout=(2, 5))
+        SDSS_DR16_url = "http://skyserver.sdss.org/dr16/SkyServerWS"
+        r = requests.get(url = "%s/ConeSearch/ConeSearchService" % SDSS_DR16_url, params = params, timeout=(2, 5))
         df = pd.read_csv(BytesIO(r.content), comment="#")
         df["objid"] = df["objid"].astype(str)
         mask = df.type == "GALAXY"
@@ -306,7 +322,7 @@ class alerce_tns(AlerceAPI):
         return vot
 
     def get_SDSSDR15_redshift(self, objid):
-        'get galaxy redshift from SDSS DR15 using their explorer webpage (this should be changed to using their API or querying their database directly'
+        'get galaxy redshift from SDSS DR16 using their explorer webpage (this should be changed to using their API or querying their database directly'
 
         params = {
             'id': "%s" % objid
@@ -330,6 +346,39 @@ class alerce_tns(AlerceAPI):
             if data == "Spectrograph":
                 results["specz"] = i.iloc[2][1]
                 results["specz_err"] = i.iloc[3][1]
+        return results
+
+    def get_SDSSDR16_redshift(self, objid):
+        'get galaxy redshift from SDSS DR16 using their explorer webpage (this should be changed to using their API or querying their database directly'
+
+        params = {
+            'id': "%s" % objid
+        }
+        r = requests.get(url = "http://skyserver.sdss.org/dr16/en/tools/explore/obj.aspx", params = params)
+        df = pd.read_html(str(r.content))
+        results = {}
+
+        # extract name and photoz
+        for i in df:
+            data = i.loc[0][0]
+            if type(data) is str:
+                m = re.match("(?P<host>SDSS\sJ.{18})", data[5:])
+                if m:
+                    results["host_name"] = m["host"]
+            if data == 'Mjd-Date':
+                if i.iloc[0][1] == 'photoZ (KD-tree method)':
+                    photozs = i.iloc[1][1].split()
+                    results["photoz"] = photozs[0]
+                    results["photoz_err"] = photozs[2]
+            if data == "Spectrograph":
+                results["specz"] = i.iloc[2][1]
+                results["specz_err"] = i.iloc[3][1]
+
+        # if specz available query from quicklook
+        if "specz" in results.keys():
+            r = requests.get(url = "http://skyserver.sdss.org/dr16/en/tools/quicklook/summary.aspx", params = params)
+            results["specz"] = float(re.findall("Redshift\s\(z\):.*\n.*>(\d.\d+)</td>", r.text)[0])
+        
         return results
 
     # check if object was reported
