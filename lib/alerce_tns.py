@@ -171,7 +171,6 @@ class alerce_tns(AlerceAPI):
                             candidate_host_redshift_spec = False
                         candidate_host_redshift_type = data["data"]["Redshift Flag"]
         elif data["data"]["cat_name"] == "Simbad":
-            display(data["data"])
             coords = coordinates.SkyCoord("%s %s" % (data["data"]["RA"], data["data"]["DEC"]), unit=(u.hourangle, u.deg), frame='icrs')
             candidate_host_ra = coords.ra / u.deg
             candidate_host_dec = coords.dec / u.deg
