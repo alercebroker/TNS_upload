@@ -385,8 +385,6 @@ class alerce_tns(AlerceAPI):
     def isin_TNS(self, api_key, oid):
 
         # check TNS
-        if verbose:
-            print("Doing TNS xmatches for object %s" % oid)
         tns = self.get_tns(api_key, oid)
         if tns:
             print("Astronomical transient is known:", tns, "\n")
