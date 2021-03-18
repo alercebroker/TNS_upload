@@ -32,9 +32,9 @@ import base64
 
 from alerce.api import AlerceAPI
 
-# whether to report photozs to TNS and SkyPortal
+# whether to report photozs to TNS and skyportal
 report_photoz_TNS = False
-report_photoz_SkyPortal = True
+report_photoz_skyportal = False
 
 # add redshift to Simbad query
 customSimbad = Simbad()
@@ -650,6 +650,7 @@ class alerce_tns(AlerceAPI):
             return [None,'Error message : \n'+str(e)]
 
     # SKYPORTAL
+    # ----------------------------------
 
     # token based api
     def api(self, method, endpoint, token, data=None):
@@ -675,7 +676,7 @@ class alerce_tns(AlerceAPI):
     
     
     # Prepare SkyPortal report
-    def do_SkyPortal_report(self, url, token, oid, reporter, verbose=False, test=False):
+    def do_skyportal_report(self, url, token, oid, reporter, verbose=False, test=False):
 
         # check if candidate is in skyportal
         if self.isin_skyportal(url, token, oid):
@@ -692,7 +693,7 @@ class alerce_tns(AlerceAPI):
         report["ra"] = float(stats.meanra)
         report["dec"] = float(stats.meandec)
         report["id"] = oid            # Name of the object
-        if self.candidate_hosts.loc[oid].host_redshift != "NULL" and self.candidate_hosts.loc[oid].host_redshift_type == "specz":
+        if self.candidate_hosts.loc[oid].host_redshift != "NULL" and (report_photoz_skyportal or self.candidate_hosts.loc[oid].host_redshift_type == "specz"):
             report["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
         report["origin"] = "ZTF"        # Origin of the object.
         report["filter_ids"] = [self.get_skyportal_id(url, token)]
