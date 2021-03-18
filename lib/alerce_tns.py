@@ -733,7 +733,7 @@ class alerce_tns(AlerceAPI):
         # check if candidate is in skyportal
         if self.isin_skyportal(url, token, oid):
             print("%s is in skyportal" % oid)
-            #return False
+            return False
         
         # get ALeRCE stats
         if verbose:
