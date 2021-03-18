@@ -23,6 +23,7 @@ from ipywidgets import Layout, Box, widgets
 
 import requests
 import json
+import time
 
 from xml.etree import ElementTree
 from io import BytesIO
@@ -31,9 +32,17 @@ import base64
 
 from alerce.api import AlerceAPI
 
+# whether to report photozs to TNS and SkyPortal
+report_photoz_TNS = False
+report_photoz_SkyPortal = True
+
 # add redshift to Simbad query
 customSimbad = Simbad()
 customSimbad.add_votable_fields('z_value')
+customSimbad.add_votable_fields('rv_value')
+customSimbad.add_votable_fields('rvz_type')
+customSimbad.add_votable_fields('rvz_error')
+customSimbad.add_votable_fields('rvz_qual')
 customSimbad.TIMEOUT = 5 # 5 seconds
 
 class alerce_tns(AlerceAPI):
@@ -42,7 +51,7 @@ class alerce_tns(AlerceAPI):
     def __init__(self, **kwargs):
         
         super().__init__(**kwargs)
-        self.hosts = {} # known hosts not to query again in SDSS
+        self.hosts_queried = {} # known hosts not to query again in SDSS
         self.nremaining = 0 # already seen candidates
 
     def start_aladin(self, survey="P/PanSTARRS/DR1/color-z-zg-g", layout_width=70, fov=0.025):
@@ -126,8 +135,14 @@ class alerce_tns(AlerceAPI):
         self.do_SDSSDR15 = SDSSDR15
         self.do_catsHTM = catsHTM
         self.do_vizier = vizier
-        self.candidate_host_names = {}
-        self.candidate_host_redshifts = {}
+        #self.candidate_host_name = {}
+        #self.candidate_host_ra = {}
+        #self.candidate_host_dec = {}
+        #self.candidate_host_source = {}
+        #self.candidate_host_redshift = {}
+        #self.candidate_host_redshift_error = {}
+        #self.candidate_host_redshift_type = {}
+        self.candidate_hosts = pd.DataFrame()
         self.candidate_iterator = iter(candidates)
         self.nremaining = len(candidates)
 
@@ -144,27 +159,82 @@ class alerce_tns(AlerceAPI):
     def process_objectClicked(self, data):
         'move to following object when clicking over an object'
 
-        report_photoz = False
         # save clicked information
+        if data["data"]["cat_name"] != "ZTF":
+            candidate_host_source = data["data"]["cat_name"]
         if data["data"]["cat_name"] == "NED":
-            self.candidate_host_names[self.current_oid] = data["data"]["Object Name"]
+            candidate_host_ra = data["data"]["RA"]
+            candidate_host_dec = data["data"]["DEC"]
+            candidate_host_name = data["data"]["Object Name"]
             if "Redshift" in data["data"].keys():
-                isphotoz = False
                 if "Redshift Flag" in data["data"].keys():
-                    if data["data"]["Redshift Flag"] in ["PHOT"]:
-                        isphotoz = True
-                if report_photoz or not isphotoz:
-                    self.candidate_host_redshifts[self.current_oid] = data["data"]["Redshift"]
+                    if data["data"]["Redshift"] in ["nan", "-99", "-999.0", "-9999.0"]:
+                        print("Ignoring redshift")
+                    else:
+                        candidate_host_redshift = data["data"]["Redshift"]
+                        if data["data"]["Redshift Flag"] in ["PHOT"]:
+                            candidate_host_redshift_type = "photoz"
+                        else:
+                            candidate_host_redshift_type = "specz"
         elif data["data"]["cat_name"] == "Simbad":
-            self.candidate_host_names[self.current_oid] = data["data"]["MAIN_ID"]
+            coords = coordinates.SkyCoord("%s %s" % (data["data"]["RA"], data["data"]["DEC"]), unit=(u.hourangle, u.deg), frame='icrs')
+            candidate_host_ra = coords.ra / u.deg
+            candidate_host_dec = coords.dec / u.deg
+            candidate_host_name = data["data"]["MAIN_ID"]
             if "Z_VALUE" in data["data"].keys():
-                self.candidate_host_redshifts[self.current_oid] = data["data"]["Z_VALUE"]
+                if data["data"]["Z_VALUE"] in ["nan", "-99", "-999.0", "-9999.0"] or data["data"]["RVZ_ERROR"] != "nan": # based on experience, we only trust Simbad redshifts if they have an associated error
+                    print("Ignoring redshift")
+                else:
+                    candidate_host_redshift = data["data"]["Z_VALUE"]
+                    candidate_host_redshift_error = data["data"]["RVZ_ERROR"]
+                    candidate_host_redshift_type = "specz" # this assumes that Simbad only returns spectroscopic redshifts
         elif data["data"]["cat_name"] == "SDSSDR15":
-            self.candidate_host_names[self.current_oid] = self.hosts[data["data"]["objid"]]["host_name"]
-            if "specz" in self.hosts[data["data"]["objid"]].keys():
-                self.candidate_host_redshifts[self.current_oid] = self.hosts[data["data"]["objid"]]["specz"]
-            elif "photoz" in self.hosts[data["data"]["objid"]].keys() and report_photoz:
-                self.candidate_host_redshifts[self.current_oid] = self.hosts[data["data"]["objid"]]["photoz"]
+            objid = data["data"]["objid"]
+            candidate_host_name = self.hosts_queried[objid]["host_name"]
+            candidate_host_ra = data["data"]["ra"]
+            candidate_host_dec = data["data"]["dec"]
+            if "specz" in self.hosts_queried[objid].keys():
+                if self.hosts_queried[objid]["specz"] in ["nan", "-99", "-999.0", "-9999.0"]:
+                    print("Ignoring redshift...")
+                else:
+                    candidate_host_redshift = self.hosts_queried[objid]["specz"]
+                    candidate_host_redshift_error = self.hosts_queried[objid]["specz_err"]
+                    candidate_host_redshift_type = "specz"
+            elif "photoz" in self.hosts_queried[objid].keys():
+                if self.hosts_queried[objid]["photoz"] in ["nan", "-99", "-999.0", "-9999.0"]:
+                    print("Ignoring redshift...")
+                else:
+                    candidate_host_redshift = self.hosts_queried[objid]["photoz"]
+                    candidate_host_redshift_error = self.hosts_queried[objid]["photoz_err"]
+                    candidate_host_redshift_type = "photoz"
+
+        if not "candidate_host_name" in locals():
+            candidate_host_name = "NULL"
+        if not "candidate_host_ra" in locals():
+            candidate_host_ra = "NULL"
+        if not "candidate_host_dec" in locals():
+            candidate_host_dec = "NULL"
+        if not "candidate_host_redshift" in locals():
+            candidate_host_redshift = "NULL"
+        if not "candidate_host_redshift_error" in locals():
+            candidate_host_redshift_error = "NULL"
+        if not "candidate_host_redshift_type" in locals():
+            candidate_host_redshift_type = "NULL"
+        if not "candidate_host_source" in locals():
+            candidate_host_source = "NULL"
+
+        self.candidate_hosts = pd.concat([pd.DataFrame([[candidate_host_name,
+                                                         candidate_host_ra,
+                                                         candidate_host_dec,
+                                                         candidate_host_source,
+                                                         candidate_host_redshift,
+                                                         candidate_host_redshift_error,
+                                                         candidate_host_redshift_type]],
+                                                       columns = ["host_name", "host_ra", "host_dec", "host_source",
+                                                                  "host_redshift", "host_redshift_error", "host_redshift_type"],
+                                                       index = [self.current_oid]),
+                                          self.candidate_hosts])
+        display(self.candidate_hosts.head(1))
 
         # move to next candidate
         try:
@@ -176,16 +246,19 @@ class alerce_tns(AlerceAPI):
                 self.view_object(oid, ned=self.do_ned, simbad=self.do_simbad, SDSSDR15=self.do_SDSSDR15, catsHTM=self.do_catsHTM, vizier=self.do_vizier)
         except StopIteration:
             self.info.value =  "<div><font size='5'>All candidates revised</font></div>"
-        
+            print("\n\nSummary of host galaxies:")
+            display(self.candidate_hosts)
+
+
     def process_objectHovered(self, data):
         
         if data["data"]["cat_name"] == "SDSSDR15":
             objid = data["data"]["objid"]
             self.info.value =  "Querying SDSSDR15 object %s..." % str(objid)
-            if objid not in self.hosts.keys():
-                self.hosts[objid] = self.get_SDSSDR15_redshift(objid)
-            for k in self.hosts[objid].keys():
-                data["data"][k] = self.hosts[objid][k]
+            if objid not in self.hosts_queried.keys():
+                self.hosts_queried[objid] = self.get_SDSSDR15_redshift(objid)
+            for k in self.hosts_queried[objid].keys():
+                data["data"][k] = self.hosts_queried[objid][k]
         output = "<h2>%s</h2>" % self.current_oid
         output += "<h2>%s</h2>" % data["data"]["cat_name"]
         sel_keys = data["data"].keys()#["type", 'ra', 'dec']
@@ -254,6 +327,35 @@ class alerce_tns(AlerceAPI):
                 results["specz_err"] = i.iloc[3][1]
         return results
 
+    # check if object was reported
+    def isin_TNS(self, api_key, oid):
+
+        # check TNS
+        if verbose:
+            print("Doing TNS xmatches for object %s" % oid)
+        tns = self.get_tns(api_key, oid)
+        if tns:
+            print("Astronomical transient is known:", tns, "\n")
+            info = self.get_tns_reporting_info(api_key, oid)
+            print("Reporting info:", info)
+            if not info["internal_names"] is None:
+                if oid in info["internal_names"]: # reported using ZTF internal name, do not report
+                    print("Object was reported using the same ZTF internal name, do not report.")
+                    return False
+                else:
+                    print("Object was not reported using the same ZTF internal name, report.")
+            else:
+                print("Warning: No internal names were reported.")
+
+            #if int(tns[0]["objname"][:4]) > Time(stats.firstmjd, format='mjd').datetime.year - 4.: # match is within last 3 years, do not report
+            #    if not test:
+            #        return False
+            #else: # match older than 3 years, report
+            #    print("Match is from more than 3 years before, sending to TNS anyway...")
+
+        return True
+
+    # prepare TNS report
     def do_TNS_report(self, api_key, oid, reporter, verbose=False, test=False):
 
         print("http://alerce.online/object/%s" % oid)
@@ -291,12 +393,11 @@ class alerce_tns(AlerceAPI):
         self.plot_stamp(oid)
 
         # host name and redshift
-        host_name = "NULL"
-        host_redshift = "NULL"
-        if oid in self.candidate_host_names.keys():
-            host_name = self.candidate_host_names[oid]
-        if oid in self.candidate_host_redshifts.keys():
-            host_redshift = self.candidate_host_redshifts[oid]
+        host_name = self.candidate_hosts.loc[oid].host_name
+        if report_photoz_TNS or self.candidate_hosts.loc[oid].host_redshift_type != "photoz":
+            host_redshift = self.candidate_hosts.loc[oid].host_redshift
+        else:
+            host_redshift = "NULL"
             
         # get detections and non-detections
         if verbose:
@@ -399,28 +500,10 @@ class alerce_tns(AlerceAPI):
             remarks = "SN candidate classified using ALeRCE's stamp classifier - see http://arxiv.org/abs/2008.03309 - and the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % oid
         print(remarks)
 
-        # check TNS
-        if verbose:
-            print("Doing TNS xmatches for object %s" % oid)
-        tns = self.get_tns(api_key, oid)
-        if tns:
-            print("Astronomical transient is known:", tns, "\n")
-            info = self.get_tns_reporting_info(api_key, oid)
-            print("Reporting info:", info)
-            if not info["internal_names"] is None:
-                if oid in info["internal_names"]: # reported using ZTF internal name, do not report
-                    print("Object was reported using the same ZTF internal name, do not report.")
-                    return False
-                else:
-                    print("Object was not reported using the same ZTF internal name, report.")
-            else:
-                print("Warning: No internal names were reported.")
-            #if int(tns[0]["objname"][:4]) > Time(stats.firstmjd, format='mjd').datetime.year - 4.: # match is within last 3 years, do not report
-            #    if not test:
-            #        return False
-            #else: # match older than 3 years, report
-            #    print("Match is from more than 3 years before, sending to TNS anyway...")
-
+        # check if object is in TNS
+        if not self.isin_TNS(api_key, oid):
+            return False
+            
         # if any detection is negative skip this candidate
         if np.sum(detections.isdiffpos == -1) > 0:
             print(detections.isdiffpos)
@@ -566,4 +649,89 @@ class alerce_tns(AlerceAPI):
 
             return [None,'Error message : \n'+str(e)]
 
+    # SKYPORTAL
+
+    # token based api
+    def api(self, method, endpoint, token, data=None):
+        headers = {'Authorization': f'token {token}'}
+        response = requests.request(method, endpoint, json=data, headers=headers)
+        return response
+
+    # get filter ids
+    def get_skyportal_id(self, url, token):
+        r = self.api('GET', url+"filters", token)
+        idcands = {}
+        print(f'HTTP code: {r.status_code}, {r.reason}')
+        print()
+        if r.status_code in (200, 400):
+            for i in r.json()["data"]:
+                idcands[i["name"]] = i["id"]
+        return idcands["ALERCE"]
+
+    # check if candidate is in SkyPortal
+    def isin_skyportal(self, url, token, oid):
+        status = self.api('GET', url+"candidates/"+oid, token).json()["status"]
+        return status == "success"
+    
+    
+    # Prepare SkyPortal report
+    def do_SkyPortal_report(self, url, token, oid, reporter, verbose=False, test=False):
+
+        # check if candidate is in skyportal
+        if self.isin_skyportal(url, token, oid):
+            print("%s is in skyportal" % oid)
+            return False
         
+        # get ALeRCE stats
+        if verbose:
+            print("Getting stats for object %s" % oid)
+        stats = self.get_stats(oid, format='pandas')
+
+        # build report
+        report = {}
+        report["ra"] = float(stats.meanra)
+        report["dec"] = float(stats.meandec)
+        report["id"] = oid            # Name of the object
+        if self.candidate_hosts.loc[oid].host_redshift != "NULL" and self.candidate_hosts.loc[oid].host_redshift_type == "specz":
+            report["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
+        report["origin"] = "ZTF"        # Origin of the object.
+        report["filter_ids"] = [self.get_skyportal_id(url, token)]
+        report["altdata"] = {}
+        report["altdata"]["alerce"] = {}
+        report["altdata"]["alerce"]["obj_type"] = "sn_candidate"
+        report["altdata"]["alerce"]["obj_identification"] = "stamp_classifier+visual_inspection"
+        if self.candidate_hosts.loc[oid].host_name != "NULL":
+            report["altdata"]["alerce"]["host_name"] = self.candidate_hosts.loc[oid].host_name
+            report["altdata"]["alerce"]["host_identification"] = "visual_inspection"
+        if self.candidate_hosts.loc[oid].host_ra != "NULL":
+            report["altdata"]["alerce"]["host_ra"] = float(self.candidate_hosts.loc[oid].host_ra)
+        if self.candidate_hosts.loc[oid].host_dec != "NULL":
+            report["altdata"]["alerce"]["host_dec"] = float(self.candidate_hosts.loc[oid].host_dec)
+        if self.candidate_hosts.loc[oid].host_source != "NULL":
+            report["altdata"]["alerce"]["host_source"] = self.candidate_hosts.loc[oid].host_source
+        if self.candidate_hosts.loc[oid].host_redshift != "NULL":
+            report["altdata"]["alerce"]["host_redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
+        if self.candidate_hosts.loc[oid].host_redshift_error != "NULL":
+            report["altdata"]["alerce"]["host_redshift_error"] = float(self.candidate_hosts.loc[oid].host_redshift_error)
+        if self.candidate_hosts.loc[oid].host_redshift_type != "NULL":
+            report["altdata"]["alerce"]["host_redshift_type"] = self.candidate_hosts.loc[oid].host_redshift_type
+        report["altdata"]["alerce"]["reporters"] = reporter
+        report["altdata"]["alerce"]["url"] = "https://alerce.online/object/%s" % oid
+
+        return report
+
+    # send to skyportal
+    def send_skyportal_report(self, url, token, report):
+
+        report["passed_at"] = time.strftime('20%y-%m-%dT%H:%M:%S', time.gmtime())
+
+        r = self.api('POST', url+"candidates", token, data=report)
+
+        print(f'HTTP code: {r.status_code}, {r.reason}')
+        if r.status_code in (200, 400):
+            display(r.json())
+            return True
+        else:
+            print("Unable to post candidate")
+            return False
+    
