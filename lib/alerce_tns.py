@@ -445,7 +445,7 @@ class alerce_tns(AlerceAPI):
 
         # host name and redshift
         host_name = self.candidate_hosts.loc[oid].host_name
-        if report_photoz_TNS or self.candidate_hosts.loc[oid].host_redshift_type != "photoz":
+        if report_photoz_TNS or self.candidate_hosts.loc[oid].host_redshift_spec:
             host_redshift = self.candidate_hosts.loc[oid].host_redshift
         else:
             host_redshift = "NULL"
@@ -710,7 +710,7 @@ class alerce_tns(AlerceAPI):
         return response
 
     # get filter ids
-    def get_skyportal_id(self, url, token):
+    def get_skyportal_filter_id(self, url, token):
         r = self.api('GET', url+"filters", token)
         idcands = {}
         print(f'HTTP code: {r.status_code}, {r.reason}')
@@ -719,6 +719,17 @@ class alerce_tns(AlerceAPI):
             for i in r.json()["data"]:
                 idcands[i["name"]] = i["id"]
         return idcands["ALERCE"]
+
+    # get filter ids
+    def get_skyportal_group_id(self, url, token):
+        r = self.api('GET', url+"groups", token)
+        idsource = {}
+        print(f'HTTP code: {r.status_code}, {r.reason}')
+        print()
+        if r.status_code in (200, 400):    
+            for i in r.json()["data"]["user_groups"]:
+                idsource[i["nickname"]] = i["id"]
+        return idsource["ALERCE"]
 
     # check if candidate is in SkyPortal
     def isin_skyportal(self, url, token, oid):
@@ -741,48 +752,53 @@ class alerce_tns(AlerceAPI):
 
         # build report
         report = {}
-        report["ra"] = float(stats.meanra)
-        report["dec"] = float(stats.meandec)
-        report["id"] = oid            # Name of the object
+        report["candidates"] = {}
+        report["candidates"]["ra"] = float(stats.meanra)
+        report["candidates"]["dec"] = float(stats.meandec)
+        report["candidates"]["id"] = oid            # Name of the object
         if self.candidate_hosts.loc[oid].host_redshift != "NULL" and (report_photoz_skyportal or self.candidate_hosts.loc[oid].host_redshift_spec):
-            report["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
-        report["origin"] = "ZTF"        # Origin of the object.
-        report["filter_ids"] = [self.get_skyportal_id(url, token)]
-        report["altdata"] = {}
-        report["altdata"]["alerce"] = {}
-        report["altdata"]["alerce"]["obj_type"] = "sn_candidate"
-        report["altdata"]["alerce"]["obj_identification"] = "stamp_classifier+visual_inspection"
+            report["candidates"]["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
+        report["candidates"]["origin"] = "ZTF"        # Origin of the object.
+        report["candidates"]["filter_ids"] = [self.get_skyportal_filter_id(url, token)]
+        report["annotations"] = {}
+        report["annotations"]["alerce"] = {}
+        report["annotations"]["alerce"]["obj_type"] = "sn_candidate"
+        report["annotations"]["alerce"]["obj_identification"] = "stamp_classifier+visual_inspection"
         if self.candidate_hosts.loc[oid].host_name != "NULL":
-            report["altdata"]["alerce"]["host"] = {}
-            report["altdata"]["alerce"]["host"]["name"] = self.candidate_hosts.loc[oid].host_name
-            report["altdata"]["alerce"]["host"]["identification"] = "visual_inspection"
+            report["annotations"]["alerce"]["host"] = {}
+            report["annotations"]["alerce"]["host"]["name"] = self.candidate_hosts.loc[oid].host_name
+            report["annotations"]["alerce"]["host"]["identification"] = "visual_inspection"
             if self.candidate_hosts.loc[oid].host_ra != "NULL" and self.candidate_hosts.loc[oid].host_dec != "NULL":
                 host_ra = float(self.candidate_hosts.loc[oid].host_ra)
                 host_dec = float(self.candidate_hosts.loc[oid].host_dec)
-                report["altdata"]["alerce"]["host"]["ra"] = host_ra
-                report["altdata"]["alerce"]["host"]["dec"] = host_dec
+                report["annotations"]["alerce"]["host"]["ra"] = host_ra
+                report["annotations"]["alerce"]["host"]["dec"] = host_dec
                 if self.candidate_hosts.loc[oid].host_offset != "NULL":
-                    report["altdata"]["alerce"]["host"]["offset_arcsec"] = self.candidate_hosts.loc[oid].host_offset # arcseconds
+                    report["annotations"]["alerce"]["host"]["offset_arcsec"] = self.candidate_hosts.loc[oid].host_offset # arcseconds
             if self.candidate_hosts.loc[oid].host_source != "NULL":
-                report["altdata"]["alerce"]["host"]["source"] = self.candidate_hosts.loc[oid].host_source
+                report["annotations"]["alerce"]["host"]["source"] = self.candidate_hosts.loc[oid].host_source
             if self.candidate_hosts.loc[oid].host_redshift != "NULL":
-                report["altdata"]["alerce"]["host"]["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
+                report["annotations"]["alerce"]["host"]["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
             if self.candidate_hosts.loc[oid].host_redshift_error != "NULL":
-                report["altdata"]["alerce"]["host"]["redshift_error"] = float(self.candidate_hosts.loc[oid].host_redshift_error)
+                report["annotations"]["alerce"]["host"]["redshift_error"] = float(self.candidate_hosts.loc[oid].host_redshift_error)
             if self.candidate_hosts.loc[oid].host_redshift_type != "NULL":
-                report["altdata"]["alerce"]["host"]["redshift_type"] = self.candidate_hosts.loc[oid].host_redshift_type
-        report["altdata"]["alerce"]["reporters"] = reporter
-        report["altdata"]["alerce"]["url"] = "https://alerce.online/object/%s" % oid
+                report["annotations"]["alerce"]["host"]["redshift_type"] = self.candidate_hosts.loc[oid].host_redshift_type
+        report["annotations"]["alerce"]["reporters"] = reporter
+        report["annotations"]["alerce"]["url"] = "https://alerce.online/object/%s" % oid
 
         return report
 
     # send to skyportal
     def send_skyportal_report(self, url, token, report):
 
-        report["passed_at"] = time.strftime('20%y-%m-%dT%H:%M:%S', time.gmtime())
-
-        r = self.api('POST', url+"candidates", token, data=report)
-
+        data = report["candidates"]
+        obj_id = data["id"]
+        data["passed_at"] = time.strftime('20%y-%m-%dT%H:%M:%S', time.gmtime())
+        print(data)
+        
+        # report candidates
+        r = self.api('POST', url+"candidates", token, data=data)
+        
         print(f'HTTP code: {r.status_code}, {r.reason}')
         if r.status_code in (200, 400):
             display(r.json())
@@ -791,3 +807,21 @@ class alerce_tns(AlerceAPI):
             print("Unable to post candidate")
             return False
     
+        # report annotations
+        if "annotations" in report.keys():
+            data = {}
+            data["obj_id"] = obj_id
+            data["origin"] = "alerce"
+            data["data"] = report["annotations"]
+            data["group_ids"] = [self.get_skyportal_group_id(url, token)]
+            print(data)
+            
+            r = self.api('POST', url+"annotations", token, data=data)
+            
+            print(f'HTTP code: {r.status_code}, {r.reason}')
+            if r.status_code in (200, 400):
+                display(r.json())
+                return True
+            else:
+                print("Unable to post candidate")
+                return False
