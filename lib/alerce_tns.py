@@ -636,32 +636,42 @@ class alerce_tns(AlerceAPI):
         except Exception as e:
             return False
 
-    # get TNS object type
     def get_tns_reporting_info(self, api_key, oid):
-        objname = self.get_tns(api_key, oid)[0]["objname"]
-    
-        data = {
-            "objname": objname
-        }
-    
-        # get object type
-        json_data = [('api_key', (None, api_key)),
-                     ('data', (None, json.dumps(data)))]
 
-        url_tns_api="https://www.wis-tns.org/api/get" #"https://wis-tns.weizmann.ac.il/api/get" 
-        json_url = url_tns_api + '/object'
-        response = requests.post(json_url, files = json_data)
-        group_name = response.json()['data']['reply']['discovery_data_source']['group_name']
-        reporter = response.json()['data']['reply']['reporting_group']['group_name'],
-        internal_names = response.json()['data']['reply']['internal_names']
-        try:
-            internal_names = internal_names.split(", ")
-        except:
-            True
+        all_internal_names = []
+        objnames = []
+        discoverers = []
+        reporters = []
+        for obj in self.get_tns(api_key, oid): 
+            objname = obj["objname"]
+            objnames.append(objname)
+    
+            data = {
+                "objname": objname
+            }
+    
+            # get object type
+            json_data = [('api_key', (None, api_key)),
+                         ('data', (None, json.dumps(data)))]
 
-        return {"discoverer": group_name,
-                "reporter": response.json()['data']['reply']['reporting_group']['group_name'],
-                "internal_names": internal_names}
+            url_tns_api="https://www.wis-tns.org/api/get" #"https://wis-tns.weizmann.ac.il/api/get" 
+            json_url = url_tns_api + '/object'
+            response = requests.post(json_url, files = json_data)
+            group_name = response.json()['data']['reply']['discovery_data_source']['group_name']
+            discoverers.append(group_name)
+            reporter = response.json()['data']['reply']['reporting_group']['group_name']
+            reporters.append(reporter)
+            internal_names = response.json()['data']['reply']['internal_names']
+            try:
+                internal_names = internal_names.split(", ")
+                all_internal_names += internal_names
+            except:
+                True
+        print(all_internal_names)
+
+        return {"discoverer": discoverers, "objname": objnames,
+                "reporter": reporters,
+                "internal_names": all_internal_names}
         #try:
         #    object_type = response.json()["data"]["reply"]["object_type"]["name"]
         #except:
