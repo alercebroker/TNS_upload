@@ -286,12 +286,16 @@ class alerce_tns(Alerce):
 
 
     def process_objectHovered(self, data):
-        
+
         if data["data"]["cat_name"] == "SDSSDR16":
+            # objid
             objid = data["data"]["objid"]
+            # long name
+            host_name =  "SDSS J%s" % coordinates.SkyCoord(ra=data["data"]["ra"]*u.degree, dec=data["data"]["dec"]*u.degree, frame='icrs').to_string(style="hmsdms", sep="", pad=True, precision=2)[:-1].replace(" ", "")
             self.info.value =  "Querying SDSSDR16 object %s..." % str(objid)
             if objid not in self.hosts_queried.keys():
                 self.hosts_queried[objid] = self.get_SDSSDR16_redshift(objid)
+                self.hosts_queried[objid]["host_name"] = host_name
             for k in self.hosts_queried[objid].keys():
                 data["data"][k] = self.hosts_queried[objid][k]
         output = "<h2>%s</h2>" % self.current_oid
@@ -331,48 +335,23 @@ class alerce_tns(Alerce):
         mask = df.type == "GALAXY"
         if mask.sum() == 0:
             return
-        
+
         vot = Table.from_pandas(df[mask])
         return vot
 
-    def get_SDSSDR15_redshift(self, objid):
-        'get galaxy redshift from SDSS DR16 using their explorer webpage (this should be changed to using their API or querying their database directly'
-
-        params = {
-            'id': "%s" % objid
-        }
-        r = requests.get(url = "http://skyserver.sdss.org/dr15/en/tools/explore/obj.aspx", params = params)
-        df = pd.read_html(str(r.content))
-        results = {}
-
-        # extract name and photoz
-        for i in df:
-            data = i.loc[0][0]
-            if type(data) is str:
-                m = re.match("(?P<host>SDSS\sJ.{18})", data[5:])
-                if m:
-                    results["host_name"] = m["host"]
-            if data == 'Mjd-Date':
-                if i.iloc[0][1] == 'photoZ (KD-tree method)':
-                    photozs = i.iloc[1][1].split()
-                    results["photoz"] = photozs[0]
-                    results["photoz_err"] = photozs[2]
-            if data == "Spectrograph":
-                results["specz"] = i.iloc[2][1]
-                results["specz_err"] = i.iloc[3][1]
-        return results
 
     def get_SDSSDR16_redshift_spec(self, objid, mode='vot'):
         'get galaxy spectroscopic redshift from SDSS DR16 using SDSS DR16 API'
-        
+
         SDSS_DR16_url = 'http://skyserver.sdss.org/dr16/SkyServerWS'
-        sdss_query = '?cmd=select top 5 p.objid, s.z, s.zerr, s.class, s.zwarning from photoobj as p join specobj as s on s.bestobjid = p.objid where p.objid=%s&format=csv' % objid
+        sdss_query = '?cmd=select top 1 p.objid, s.z, s.zerr, s.class, s.zwarning from photoobj as p join specobj as s on s.bestobjid = p.objid where p.objid=%s&format=csv' % objid
         url = '%s/SearchTools/SqlSearch%s' % (SDSS_DR16_url, sdss_query)
         print(url)
         r = requests.get(url = url, timeout=(2, 5))
         df = pd.read_csv(BytesIO(r.content), comment="#")
-        
+
         df['objid'] = df['objid'].astype(str)
+
         mask = df['class'] == 'GALAXY'
         if mask.sum() == 0:
             return
@@ -383,11 +362,12 @@ class alerce_tns(Alerce):
         elif mode == 'pandas':
             return df[mask]
 
+        
     def get_SDSSDR16_redshift_phot(self, objid, mode='vot'):
         'get galaxy photometric redshift from SDSS DR16 using SDSS DR16 API'
         
         SDSS_DR16_url = 'http://skyserver.sdss.org/dr16/SkyServerWS'
-        sdss_query = '?cmd=select top 5 objid, z, zerr, photoerrorclass from photoz where objid=%s&format=csv' % objid
+        sdss_query = '?cmd=select top 1 objid, z, zerr, photoerrorclass from photoz where objid=%s&format=csv' % objid
         url = '%s/SearchTools/SqlSearch%s' % (SDSS_DR16_url, sdss_query)
         print(url)
         r = requests.get(url = url, timeout=(2, 5))
@@ -404,38 +384,47 @@ class alerce_tns(Alerce):
     def get_SDSSDR16_redshift(self, objid):
         'get galaxy redshift from SDSS DR16 using their explorer webpage (this should be changed to using their API or querying their database directly'
 
-        display(self.get_SDSSDR16_redshift_phot(objid))
-        display(self.get_SDSSDR16_redshift_spec(objid))
-
-        params = {
-            'id': "%s" % objid
-        }
-        r = requests.get(url = "http://skyserver.sdss.org/dr16/en/tools/explore/obj.aspx", params = params)
-        df = pd.read_html(str(r.content))
         results = {}
-
-        # extract name and photoz
-        for i in df:
-            data = i.loc[0][0]
-            if type(data) is str:
-                m = re.match("(?P<host>SDSS\sJ.{18})", data[5:])
-                if m:
-                    results["host_name"] = m["host"]
-            if data == 'Mjd-Date':
-                if i.iloc[0][1] == 'photoZ (KD-tree method)':
-                    photozs = i.iloc[1][1].split()
-                    results["photoz"] = photozs[0]
-                    results["photoz_err"] = photozs[2]
-            if data == "Spectrograph":
-                results["specz"] = i.iloc[2][1]
-                results["specz_err"] = i.iloc[3][1]
-
-        # if specz available query from quicklook
-        if "specz" in results.keys():
-            r = requests.get(url = "http://skyserver.sdss.org/dr16/en/tools/quicklook/summary.aspx", params = params)
-            results["specz"] = float(re.findall("Redshift\s\(z\):.*\n.*>(\d.\d+)</td>", r.text)[0])
+        photz = self.get_SDSSDR16_redshift_phot(objid, mode='pandas')
+        specz = self.get_SDSSDR16_redshift_spec(objid, mode='pandas')
+        if not photz is None:
+            results["photoz"] = float(photz.z)
+            results["photoz_err"] = float(photz.zerr)
+        if not specz is None:
+            results["specz"] = float(specz.z)
+            results["specz_err"] = float(specz.zerr)
         
-        return results
+        return results 
+
+        #params = {
+        #    'id': "%s" % objid
+        #}
+        #r = requests.get(url = "http://skyserver.sdss.org/dr16/en/tools/explore/obj.aspx", params = params)
+        #df = pd.read_html(str(r.content))
+        #results = {}
+        #
+        ## extract name and photoz
+        #for i in df:
+        #    data = i.loc[0][0]
+        #    if type(data) is str:
+        #        m = re.match("(?P<host>SDSS\sJ.{18})", data[5:])
+        #        if m:
+        #            results["host_name"] = m["host"]
+        #    if data == 'Mjd-Date':
+        #        if i.iloc[0][1] == 'photoZ (KD-tree method)':
+        #            photozs = i.iloc[1][1].split()
+        #            results["photoz"] = photozs[0]
+        #            results["photoz_err"] = photozs[2]
+        #    if data == "Spectrograph":
+        #        results["specz"] = i.iloc[2][1]
+        #        results["specz_err"] = i.iloc[3][1]
+        #
+        ## if specz available query from quicklook
+        #if "specz" in results.keys():
+        #    r = requests.get(url = "http://skyserver.sdss.org/dr16/en/tools/quicklook/summary.aspx", params = params)
+        #    results["specz"] = float(re.findall("Redshift\s\(z\):.*\n.*>(\d.\d+)</td>", r.text)[0])
+        #
+        #return results
 
     # check if object was reported
     def isin_TNS(self, api_key, oid):
@@ -449,7 +438,7 @@ class alerce_tns(Alerce):
             if not info["internal_names"] is None:
                 if oid in info["internal_names"]: # reported using ZTF internal name, do not report
                     print("Object was reported using the same ZTF internal name, do not report.")
-                    #return False
+                    return False
                 else:
                     print("Object was not reported using the same ZTF internal name, report.")
             else:
@@ -816,7 +805,7 @@ class alerce_tns(Alerce):
         # get ALeRCE stats
         if verbose:
             print("Getting stats for object %s" % oid)
-        stats = self.get_objects(oid=oid, format='pandas')
+        stats = self.query_objects(oid=oid, format='pandas')
 
         # build report
         report = {}
