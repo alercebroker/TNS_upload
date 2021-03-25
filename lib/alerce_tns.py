@@ -362,7 +362,7 @@ class alerce_tns(Alerce):
                 results["specz_err"] = i.iloc[3][1]
         return results
 
-    def get_SDSSDR16_redshift_spec(objid, mode='vot'):
+    def get_SDSSDR16_redshift_spec(self, objid, mode='vot'):
         'get galaxy spectroscopic redshift from SDSS DR16 using SDSS DR16 API'
         
         SDSS_DR16_url = 'http://skyserver.sdss.org/dr16/SkyServerWS'
@@ -383,7 +383,7 @@ class alerce_tns(Alerce):
         elif mode == 'pandas':
             return df[mask]
 
-    def get_SDSSDR16_redshift_phot(objid, mode='vot'):
+    def get_SDSSDR16_redshift_phot(self, objid, mode='vot'):
         'get galaxy photometric redshift from SDSS DR16 using SDSS DR16 API'
         
         SDSS_DR16_url = 'http://skyserver.sdss.org/dr16/SkyServerWS'
@@ -404,8 +404,8 @@ class alerce_tns(Alerce):
     def get_SDSSDR16_redshift(self, objid):
         'get galaxy redshift from SDSS DR16 using their explorer webpage (this should be changed to using their API or querying their database directly'
 
-        display(get_SDSSDR16_redshift_phot(objid))
-        display(get_SDSSDR16_redshift_spec(objid))
+        display(self.get_SDSSDR16_redshift_phot(objid))
+        display(self.get_SDSSDR16_redshift_spec(objid))
 
         params = {
             'id': "%s" % objid
@@ -517,11 +517,13 @@ class alerce_tns(Alerce):
         # filters: 110 (g-ZTF), 111 (r-ZTF), 112 (i-ZTF)
         filters_dict = {1: "110", 2:"111", 3:"112"}
 
-        # boolean to note whether there are detections
+        # boolean to note whether there are detections, change index if they exist
         has_non_detections = True
         if non_detections is None:
             has_non_detections = False
-
+        else:
+            non_detections.set_index("mjd", inplace=True)
+        
         # get last non-detection
         if has_non_detections and non_detections.shape[0] > 0:
 
