@@ -30,7 +30,15 @@ from io import BytesIO
 from PIL import Image
 import base64
 
-from alerce.api import AlerceAPI
+
+from alerce.core import Alerce
+
+#my_config = {
+#    "ZTF_API_URL": "https://dev.api.alerce.online"
+#}
+#alerce.load_config_from_object(my_config)
+
+#from alerce.api import AlerceAPI
 
 # whether to report photozs to TNS and skyportal
 report_photoz_TNS = False
@@ -45,12 +53,19 @@ customSimbad.add_votable_fields('rvz_error')
 customSimbad.add_votable_fields('rvz_qual')
 customSimbad.TIMEOUT = 5 # 5 seconds
 
-class alerce_tns(AlerceAPI):
+class alerce_tns(Alerce):
     'module to interact with alerce api to send TNS report'
     
     def __init__(self, **kwargs):
         
         super().__init__(**kwargs)
+
+        # fix API address
+        my_config = {
+            "ZTF_API_URL": "https://dev.api.alerce.online"
+        }
+        self.load_config_from_object(my_config)
+        
         self.hosts_queried = {} # known hosts not to query again in SDSS
         self.nremaining = 0 # already seen candidates
 
@@ -70,7 +85,7 @@ class alerce_tns(AlerceAPI):
         # start aladin widget
         self.start_aladin()
 
-        sn = self.get_stats(oid, format='pandas')
+        sn = self.query_objects(oid=oid, format='pandas')
         self.aladin.target = "%f %f" % (sn.meanra, sn.meandec)
         co = coordinates.SkyCoord(ra=sn.meanra, dec=sn.meandec, unit=(u.deg, u.deg), frame='fk5')
 
@@ -231,7 +246,7 @@ class alerce_tns(AlerceAPI):
             candidate_host_source = "NULL"
 
         # get candidate positionstats
-        stats = self.get_stats(self.current_oid, format='pandas')
+        stats = self.query_objects(oid=self.current_oid, format='pandas')
         cand_ra, cand_dec = float(stats.meanra), float(stats.meandec)
         # compute offset to galaxy
         if candidate_host_ra != "NULL" and candidate_host_dec != "NULL":
@@ -347,8 +362,50 @@ class alerce_tns(AlerceAPI):
                 results["specz_err"] = i.iloc[3][1]
         return results
 
+    def get_SDSSDR16_redshift_spec(objid, mode='vot'):
+        'get galaxy spectroscopic redshift from SDSS DR16 using SDSS DR16 API'
+        
+        SDSS_DR16_url = 'http://skyserver.sdss.org/dr16/SkyServerWS'
+        sdss_query = '?cmd=select top 5 p.objid, s.z, s.zerr, s.class, s.zwarning from photoobj as p join specobj as s on s.bestobjid = p.objid where p.objid=%s&format=csv' % objid
+        url = '%s/SearchTools/SqlSearch%s' % (SDSS_DR16_url, sdss_query)
+        print(url)
+        r = requests.get(url = url, timeout=(2, 5))
+        df = pd.read_csv(BytesIO(r.content), comment="#")
+        
+        df['objid'] = df['objid'].astype(str)
+        mask = df['class'] == 'GALAXY'
+        if mask.sum() == 0:
+            return
+
+        if mode == 'vot':
+            vot = Table.from_pandas(df[mask])
+            return vot
+        elif mode == 'pandas':
+            return df[mask]
+
+    def get_SDSSDR16_redshift_phot(objid, mode='vot'):
+        'get galaxy photometric redshift from SDSS DR16 using SDSS DR16 API'
+        
+        SDSS_DR16_url = 'http://skyserver.sdss.org/dr16/SkyServerWS'
+        sdss_query = '?cmd=select top 5 objid, z, zerr, photoerrorclass from photoz where objid=%s&format=csv' % objid
+        url = '%s/SearchTools/SqlSearch%s' % (SDSS_DR16_url, sdss_query)
+        print(url)
+        r = requests.get(url = url, timeout=(2, 5))
+        df = pd.read_csv(BytesIO(r.content), comment="#")
+        
+        df['objid'] = df['objid'].astype(str)
+
+        if mode == 'vot':
+            vot = Table.from_pandas(df)
+            return vot
+        elif mode == 'pandas':
+            return df
+        
     def get_SDSSDR16_redshift(self, objid):
         'get galaxy redshift from SDSS DR16 using their explorer webpage (this should be changed to using their API or querying their database directly'
+
+        display(get_SDSSDR16_redshift_phot(objid))
+        display(get_SDSSDR16_redshift_spec(objid))
 
         params = {
             'id': "%s" % objid
@@ -392,7 +449,7 @@ class alerce_tns(AlerceAPI):
             if not info["internal_names"] is None:
                 if oid in info["internal_names"]: # reported using ZTF internal name, do not report
                     print("Object was reported using the same ZTF internal name, do not report.")
-                    return False
+                    #return False
                 else:
                     print("Object was not reported using the same ZTF internal name, report.")
             else:
@@ -432,7 +489,7 @@ class alerce_tns(AlerceAPI):
         # get stats
         if verbose:
             print("Getting stats for object %s" % oid)
-        stats = self.get_stats(oid, format='pandas')
+        stats = self.query_objects(oid=oid, format='pandas')
 
         # RA, DEC
         RA, DEC = float(stats.meanra), float(stats.meandec)
@@ -441,7 +498,7 @@ class alerce_tns(AlerceAPI):
         discovery_datetime = Time(float(stats.firstmjd), format='mjd').fits.replace("T", " ")
 
         # display discovery stamps
-        self.plot_stamp(oid)
+        #self.plot_stamp(oid)
 
         # host name and redshift
         host_name = self.candidate_hosts.loc[oid].host_name
@@ -453,8 +510,8 @@ class alerce_tns(AlerceAPI):
         # get detections and non-detections
         if verbose:
                 print("Getting detections and non-detections for object %s" % oid)
-        detections = self.get_detections(oid, format='pandas')
-        non_detections = self.get_non_detections(oid, format='pandas') # note that new API returns none if not non detections
+        detections = self.query_detections(oid, format='pandas')
+        non_detections = self.query_non_detections(oid, format='pandas') # note that new API returns none if not non detections
 
         # display latest non-detections
         # filters: 110 (g-ZTF), 111 (r-ZTF), 112 (i-ZTF)
@@ -581,12 +638,12 @@ class alerce_tns(AlerceAPI):
         report = {
                 "ra": {
                     "value": "%s" % RA,
-                    "error": "%s" % float(detections.iloc[0].sigmara),
+                    "error": "%s" % float(stats.sigmara),
                     "units": "arcsec"
                     },
                 "dec": {
                     "value": "%s" % DEC,
-                    "error": "%s" % float(detections.iloc[0].sigmadec),
+                    "error": "%s" % float(stats.sigmadec),
                     "units": "arcsec"
                     },
                 "reporting_group_id": reporting_group_id,
@@ -617,12 +674,11 @@ class alerce_tns(AlerceAPI):
         'get information about the candidate from TNS'
         
         # get ra, dec
-        if oid != self.oid:
-            self.get_stats(oid, format='pandas')
+        stats = self.query_objects(oid=oid, format='pandas')
         
         url_tns_api="https://www.wis-tns.org/api/get"
         search_url=url_tns_api+'/search'
-        search_obj=[("ra", "%f" % self.meanra), ("dec", "%f" % self.meandec), ("radius","5"), ("units","arcsec"),
+        search_obj=[("ra", "%f" % stats.meanra), ("dec", "%f" % stats.meandec), ("radius","5"), ("units","arcsec"),
             ("objname",""), ("internal_name","")]
         search_obj=OrderedDict(search_obj)
         search_data=[('api_key',(None, api_key)), ('data',(None,json.dumps(search_obj)))]
@@ -758,7 +814,7 @@ class alerce_tns(AlerceAPI):
         # get ALeRCE stats
         if verbose:
             print("Getting stats for object %s" % oid)
-        stats = self.get_stats(oid, format='pandas')
+        stats = self.get_objects(oid=oid, format='pandas')
 
         # build report
         report = {}
