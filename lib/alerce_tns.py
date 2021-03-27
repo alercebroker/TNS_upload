@@ -822,31 +822,31 @@ class alerce_tns(Alerce):
             report["candidates"]["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
         report["candidates"]["origin"] = "ZTF"        # Origin of the object.
         report["candidates"]["filter_ids"] = [self.get_skyportal_filter_id(url, token)]
-        report["annotations"] = {}
-        report["annotations"]["alerce"] = {}
-        report["annotations"]["alerce"]["obj_type"] = "sn_candidate"
-        report["annotations"]["alerce"]["obj_identification"] = "stamp_classifier+visual_inspection"
+        report["annotation"] = {}
+        report["annotation"] = {}
+        report["annotation"]["obj_type"] = "sn_candidate"
+        report["annotation"]["obj_identification"] = "stamp_classifier+visual_inspection"
         if self.candidate_hosts.loc[oid].host_name != "NULL":
-            report["annotations"]["alerce"]["host"] = {}
-            report["annotations"]["alerce"]["host"]["name"] = self.candidate_hosts.loc[oid].host_name
-            report["annotations"]["alerce"]["host"]["identification"] = "visual_inspection"
+            report["annotation"]["host"] = {}
+            report["annotation"]["host"]["name"] = self.candidate_hosts.loc[oid].host_name
+            report["annotation"]["host"]["identification"] = "visual_inspection"
             if self.candidate_hosts.loc[oid].host_ra != "NULL" and self.candidate_hosts.loc[oid].host_dec != "NULL":
                 host_ra = float(self.candidate_hosts.loc[oid].host_ra)
                 host_dec = float(self.candidate_hosts.loc[oid].host_dec)
-                report["annotations"]["alerce"]["host"]["ra"] = host_ra
-                report["annotations"]["alerce"]["host"]["dec"] = host_dec
+                report["annotation"]["host"]["ra"] = host_ra
+                report["annotation"]["host"]["dec"] = host_dec
                 if self.candidate_hosts.loc[oid].host_offset != "NULL":
-                    report["annotations"]["alerce"]["host"]["offset_arcsec"] = self.candidate_hosts.loc[oid].host_offset # arcseconds
+                    report["annotation"]["host"]["offset_arcsec"] = self.candidate_hosts.loc[oid].host_offset # arcseconds
             if self.candidate_hosts.loc[oid].host_source != "NULL":
-                report["annotations"]["alerce"]["host"]["source"] = self.candidate_hosts.loc[oid].host_source
+                report["annotation"]["host"]["source"] = self.candidate_hosts.loc[oid].host_source
             if self.candidate_hosts.loc[oid].host_redshift != "NULL":
-                report["annotations"]["alerce"]["host"]["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
+                report["annotation"]["host"]["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
             if self.candidate_hosts.loc[oid].host_redshift_error != "NULL":
-                report["annotations"]["alerce"]["host"]["redshift_error"] = float(self.candidate_hosts.loc[oid].host_redshift_error)
+                report["annotation"]["host"]["redshift_error"] = float(self.candidate_hosts.loc[oid].host_redshift_error)
             if self.candidate_hosts.loc[oid].host_redshift_type != "NULL":
-                report["annotations"]["alerce"]["host"]["redshift_type"] = self.candidate_hosts.loc[oid].host_redshift_type
-        report["annotations"]["alerce"]["reporters"] = reporter
-        report["annotations"]["alerce"]["url"] = "https://alerce.online/object/%s" % oid
+                report["annotation"]["host"]["redshift_type"] = self.candidate_hosts.loc[oid].host_redshift_type
+        report["annotation"]["reporters"] = reporter
+        report["annotation"]["alerce_url"] = "https://alerce.online/object/%s" % oid
 
         return report
 
@@ -870,11 +870,11 @@ class alerce_tns(Alerce):
             return False
     
         # report annotations
-        if "annotations" in report.keys():
+        if "annotation" in report.keys():
             data = {}
             data["obj_id"] = obj_id
             data["origin"] = "alerce"
-            data["data"] = report["annotations"]
+            data["data"] = report["annotation"]
             data["group_ids"] = [self.get_skyportal_group_id(url, token)]
             print(data)
             
