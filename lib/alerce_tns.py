@@ -625,16 +625,22 @@ class alerce_tns(Alerce):
                 "comments": "Data provided by ZTF"
             }
 
-        # fill all compulsory fields
+        # fill all compulsory fielsddev
+        try:
+            ra_err = max(0.085, float(stats.sigmara)) # use a conservative floor of 85 milliarcsec (see Masci et al. 2019)
+            dec_err = max(0.085, float(stats.sigmara)) # use a conservative floor of 85 milliarcsec (see Masci et al. 2019)
+        except:
+            ra_err = 0.085
+            dec_err = 0.085
         report = {
                 "ra": {
                     "value": "%s" % RA,
-                    "error": "%s" % float(stats.sigmara),
+                    "error": "%s" % ra_err,
                     "units": "arcsec"
                     },
                 "dec": {
                     "value": "%s" % DEC,
-                    "error": "%s" % float(stats.sigmadec),
+                    "error": "%s" % dec_err,
                     "units": "arcsec"
                     },
                 "reporting_group_id": reporting_group_id,
@@ -714,7 +720,6 @@ class alerce_tns(Alerce):
                 all_internal_names += internal_names
             except:
                 True
-        print(all_internal_names)
 
         return {"discoverer": discoverers, "objname": objnames,
                 "reporter": reporters,
