@@ -487,7 +487,7 @@ class alerce_tns(Alerce):
         discovery_datetime = Time(float(stats.firstmjd), format='mjd').fits.replace("T", " ")
 
         # display discovery stamps
-        #self.plot_stamp(oid)
+        #self.plot_stamp(oid=oid)
 
         # host name and redshift
         host_name = self.candidate_hosts.loc[oid].host_name
@@ -827,24 +827,23 @@ class alerce_tns(Alerce):
         report["annotation"]["obj_type"] = "sn_candidate"
         report["annotation"]["obj_identification"] = "stamp_classifier+visual_inspection"
         if self.candidate_hosts.loc[oid].host_name != "NULL":
-            report["annotation"]["host"] = {}
-            report["annotation"]["host"]["name"] = self.candidate_hosts.loc[oid].host_name
-            report["annotation"]["host"]["identification"] = "visual_inspection"
+            report["annotation"]["host_name"] = self.candidate_hosts.loc[oid].host_name
+            report["annotation"]["host_identification"] = "visual_inspection"
             if self.candidate_hosts.loc[oid].host_ra != "NULL" and self.candidate_hosts.loc[oid].host_dec != "NULL":
                 host_ra = float(self.candidate_hosts.loc[oid].host_ra)
                 host_dec = float(self.candidate_hosts.loc[oid].host_dec)
-                report["annotation"]["host"]["ra"] = host_ra
-                report["annotation"]["host"]["dec"] = host_dec
+                report["annotation"]["host_ra"] = host_ra
+                report["annotation"]["host_dec"] = host_dec
                 if self.candidate_hosts.loc[oid].host_offset != "NULL":
-                    report["annotation"]["host"]["offset_arcsec"] = self.candidate_hosts.loc[oid].host_offset # arcseconds
+                    report["annotation"]["host_offset_arcsec"] = self.candidate_hosts.loc[oid].host_offset # arcseconds
             if self.candidate_hosts.loc[oid].host_source != "NULL":
-                report["annotation"]["host"]["source"] = self.candidate_hosts.loc[oid].host_source
+                report["annotation"]["host_source"] = self.candidate_hosts.loc[oid].host_source
             if self.candidate_hosts.loc[oid].host_redshift != "NULL":
-                report["annotation"]["host"]["redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
+                report["annotation"]["host_redshift"] = float(self.candidate_hosts.loc[oid].host_redshift)
             if self.candidate_hosts.loc[oid].host_redshift_error != "NULL":
-                report["annotation"]["host"]["redshift_error"] = float(self.candidate_hosts.loc[oid].host_redshift_error)
+                report["annotation"]["host_redshift_error"] = float(self.candidate_hosts.loc[oid].host_redshift_error)
             if self.candidate_hosts.loc[oid].host_redshift_type != "NULL":
-                report["annotation"]["host"]["redshift_type"] = self.candidate_hosts.loc[oid].host_redshift_type
+                report["annotation"]["host_redshift_type"] = self.candidate_hosts.loc[oid].host_redshift_type
         report["annotation"]["reporters"] = reporter
         report["annotation"]["alerce_url"] = "https://alerce.online/object/%s" % oid
 
