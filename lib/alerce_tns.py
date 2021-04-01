@@ -770,13 +770,13 @@ class alerce_tns(Alerce):
         headers = {'Authorization': f'token {token}'}
         response = requests.request(method, endpoint, json=data, headers=headers)
         return response
-
+    
     # get filter ids
     def get_skyportal_filter_id(self, url, token):
-        r = self.api('GET', url+"filters", token)
+        r = self.api('GET', "%s/filters" % url, token)
         idcands = {}
-        print(f'HTTP code: {r.status_code}, {r.reason}')
-        print()
+        #print(f'HTTP code: {r.status_code}, {r.reason}')
+        #print()
         if r.status_code in (200, 400):
             for i in r.json()["data"]:
                 idcands[i["name"]] = i["id"]
@@ -784,10 +784,10 @@ class alerce_tns(Alerce):
 
     # get filter ids
     def get_skyportal_group_id(self, url, token):
-        r = self.api('GET', url+"groups", token)
+        r = self.api('GET', "%s/groups" % url, token)
         idsource = {}
-        print(f'HTTP code: {r.status_code}, {r.reason}')
-        print()
+        #print(f'HTTP code: {r.status_code}, {r.reason}')
+        #print()
         if r.status_code in (200, 400):    
             for i in r.json()["data"]["user_groups"]:
                 idsource[i["nickname"]] = i["id"]
@@ -795,18 +795,13 @@ class alerce_tns(Alerce):
 
     # check if candidate is in SkyPortal
     def isin_skyportal(self, url, token, oid):
-        status = self.api('GET', url+"candidates/"+oid, token).json()["status"]
+        status = self.api('GET', "%s/candidates/%s" % (url, oid), token).json()["status"]
         return status == "success"
     
     
     # Prepare SkyPortal report
     def do_skyportal_report(self, url, token, oid, reporter, verbose=False, test=False):
 
-        # check if candidate is in skyportal
-        if self.isin_skyportal(url, token, oid):
-            print("%s is in skyportal" % oid)
-            return False
-        
         # get ALeRCE stats
         if verbose:
             print("Getting stats for object %s" % oid)
@@ -855,29 +850,35 @@ class alerce_tns(Alerce):
         data = report["candidates"]
         obj_id = data["id"]
         data["passed_at"] = time.strftime('20%y-%m-%dT%H:%M:%S', time.gmtime())
-        print(data)
         
-        # report candidates
-        r = self.api('POST', url+"candidates", token, data=data)
-        
-        print(f'HTTP code: {r.status_code}, {r.reason}')
-        if r.status_code in (200, 400):
-            display(r.json())
-            return True
+        # check if candidate is not in skyportal
+        if self.isin_skyportal(url, token, obj_id):
+            print("%s is in skyportal" % obj_id)
         else:
-            print("Unable to post candidate")
-            return False
+            print("\nReporting candidate")
+            # report candidates
+            r = self.api('POST', "%s/candidates" % url, token, data=data)
+        
+            print(f'HTTP code: {r.status_code}, {r.reason}')
+            if r.status_code in (200, 400):
+                print("Candidate sent")
+                display(r.json())
+            else:
+                print("Unable to post candidate")
     
         # report annotations
         if "annotation" in report.keys():
+            print("\nSending annotation")
             data = {}
             data["obj_id"] = obj_id
             data["origin"] = "alerce"
             data["data"] = report["annotation"]
             data["group_ids"] = [self.get_skyportal_group_id(url, token)]
+            print()
+            print("data:")
             print(data)
             
-            r = self.api('POST', url+"annotations", token, data=data)
+            r = self.api('POST', "%s/annotation" % url, token, data=data)
             
             print(f'HTTP code: {r.status_code}, {r.reason}')
             if r.status_code in (200, 400):
