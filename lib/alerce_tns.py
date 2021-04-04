@@ -67,7 +67,6 @@ class alerce_tns(Alerce):
         self.load_config_from_object(my_config)
         
         self.hosts_queried = {} # known hosts not to query again in SDSS
-        self.nremaining = 0 # already seen candidates
 
     def start_aladin(self, survey="P/PanSTARRS/DR1/color-z-zg-g", layout_width=70, fov=0.025):
         'Start a pyaladin window (for jupyter notebooks) together with an information window'
@@ -141,7 +140,7 @@ class alerce_tns(Alerce):
         self.aladin.add_listener('objectClicked', self.process_objectClicked)
         self.aladin.add_listener('objectHovered', self.process_objectHovered)
 
-    def select_hosts(self, candidates, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False):
+    def select_hosts(self, candidates, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False, reload=None):
         'check a list of object ids using an iterator'
 
         # copy survey selections
@@ -150,17 +149,33 @@ class alerce_tns(Alerce):
         self.do_SDSSDR16 = SDSSDR16
         self.do_catsHTM = catsHTM
         self.do_vizier = vizier
-        self.candidate_hosts = pd.DataFrame()
         self.candidate_iterator = iter(candidates)
-        self.nremaining = len(candidates)
+        self.nremaining = len(candidates) 
 
+        if reload is None:
+            self.candidate_hosts = pd.DataFrame()
+        else:
+            print("Loading and skipping already saved hosts...")
+            self.candidate_hosts = pd.read_csv("candidates/%s_hosts.csv" % reload)
+            self.candidate_hosts.set_index("oid", inplace=True)
+            self.candidate_hosts.fillna("NULL", inplace=True)
+        
         # iterate over candidates
         try:
             oid = next(self.candidate_iterator)
             self.current_oid = oid
+            # in case we reload data skip oids
+            while (oid  in list(self.candidate_hosts.index)):
+                oid = next(self.candidate_iterator)
+                self.current_oid = oid
+                self.nremaining -= 1
+                if self.nremaining == 1:
+                    print("All hosts recovered :)")
+                    display(self.candidate_hosts)
+                    return
         except StopIteration:
             del self.iterator
-    
+
         self.view_object(oid, ned=self.do_ned, simbad=self.do_simbad, SDSSDR16=self.do_SDSSDR16, catsHTM=self.do_catsHTM, vizier=self.do_vizier)
 
         
@@ -876,8 +891,6 @@ class alerce_tns(Alerce):
             data["data"] = report["annotation"]
             data["group_ids"] = [self.get_skyportal_group_id(url, token)]
             print()
-            print("data:")
-            print(data)
             
             r = self.api('POST', "%s/annotation" % url, token, data=data)
             
