@@ -155,10 +155,14 @@ class alerce_tns(Alerce):
         if reload is None:
             self.candidate_hosts = pd.DataFrame()
         else:
-            print("Loading and skipping already saved hosts...")
-            self.candidate_hosts = pd.read_csv("candidates/%s_hosts.csv" % reload)
-            self.candidate_hosts.set_index("oid", inplace=True)
-            self.candidate_hosts.fillna("NULL", inplace=True)
+            try:
+                print("Loading and skipping already saved hosts...")
+                self.candidate_hosts = pd.read_csv("candidates/%s_hosts.csv" % reload)
+                self.candidate_hosts.set_index("oid", inplace=True)
+                self.candidate_hosts.fillna("NULL", inplace=True)
+            except:
+                print("Cannot load galaxy information, creating new information.")
+                self.candidate_hosts = pd.DataFrame()
         
         # iterate over candidates
         try:
