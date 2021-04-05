@@ -1,4 +1,4 @@
-import sys, re
+import sys, re, os
 from collections import OrderedDict
 
 import numpy as np
@@ -140,7 +140,12 @@ class alerce_tns(Alerce):
         self.aladin.add_listener('objectClicked', self.process_objectClicked)
         self.aladin.add_listener('objectHovered', self.process_objectHovered)
 
-    def select_hosts(self, candidates, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False, reload=None):
+        hostfile = "hosts/%s_hosts.csv" % self.refstring
+        print("Saving hosts to %s" % hostfile)
+        self.candidate_hosts.to_csv(hostfile)
+
+
+    def select_hosts(self, candidates, refstring, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False):
         'check a list of object ids using an iterator'
 
         # copy survey selections
@@ -152,22 +157,25 @@ class alerce_tns(Alerce):
         self.candidate_iterator = iter(candidates)
         self.nremaining = len(candidates) 
 
-        if reload is None:
+        # save current galaxies
+        if not os.path.exists("hosts"):
+            os.makedirs("hosts")
+            
+        try:
+            print("Loading and skipping already saved hosts...")
+            self.candidate_hosts = pd.read_csv("hosts/%s_hosts.csv" % refstring)
+            display(self.candidate_hosts)
+            self.candidate_hosts.set_index("oid", inplace=True)
+            self.candidate_hosts.fillna("NULL", inplace=True)
+        except:
+            print("Cannot load galaxy information, creating new information.")
             self.candidate_hosts = pd.DataFrame()
-        else:
-            try:
-                print("Loading and skipping already saved hosts...")
-                self.candidate_hosts = pd.read_csv("candidates/%s_hosts.csv" % reload)
-                self.candidate_hosts.set_index("oid", inplace=True)
-                self.candidate_hosts.fillna("NULL", inplace=True)
-            except:
-                print("Cannot load galaxy information, creating new information.")
-                self.candidate_hosts = pd.DataFrame()
         
         # iterate over candidates
         try:
             oid = next(self.candidate_iterator)
             self.current_oid = oid
+            self.refstring = refstring
             # in case we reload data skip oids
             while (oid  in list(self.candidate_hosts.index)):
                 oid = next(self.candidate_iterator)
