@@ -535,7 +535,7 @@ class alerce_tns(Alerce):
 
         # boolean to note whether there are detections, change index if they exist
         has_non_detections = True
-        if non_detections is None:
+        if non_detections.empty:
             has_non_detections = False
         else:
             non_detections.set_index("mjd", inplace=True)
