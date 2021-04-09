@@ -30,15 +30,7 @@ from io import BytesIO
 from PIL import Image
 import base64
 
-
 from alerce.core import Alerce
-
-#my_config = {
-#    "ZTF_API_URL": "https://dev.api.alerce.online"
-#}
-#alerce.load_config_from_object(my_config)
-
-#from alerce.api import AlerceAPI
 
 # whether to report photozs to TNS and skyportal
 report_photoz_TNS = False
@@ -60,11 +52,11 @@ class alerce_tns(Alerce):
         
         super().__init__(**kwargs)
 
-        # fix API address
-        my_config = {
-            "ZTF_API_URL": "https://dev.api.alerce.online"
-        }
-        self.load_config_from_object(my_config)
+        ## fix API address
+        #my_config = {
+        #    "ZTF_API_URL": "https://dev.api.alerce.online"
+        #}
+        #self.load_config_from_object(my_config)
         
         self.hosts_queried = {} # known hosts not to query again in SDSS
 
