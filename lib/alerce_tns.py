@@ -156,13 +156,15 @@ class alerce_tns(Alerce):
         try:
             print("Loading and skipping already saved hosts...")
             self.candidate_hosts = pd.read_csv("hosts/%s_hosts.csv" % refstring)
+            self.candidate_hosts.drop_duplicates(inplace=True, subset='oid')
+            print(self.candidate_hosts.shape)
             display(self.candidate_hosts)
             self.candidate_hosts.set_index("oid", inplace=True)
             self.candidate_hosts.fillna("NULL", inplace=True)
         except:
             print("Cannot load galaxy information, creating new information.")
             self.candidate_hosts = pd.DataFrame()
-        
+
         # iterate over candidates
         try:
             oid = next(self.candidate_iterator)
@@ -170,11 +172,19 @@ class alerce_tns(Alerce):
             self.refstring = refstring
             # in case we reload data skip oids
             while (oid  in list(self.candidate_hosts.index)):
-                oid = next(self.candidate_iterator)
+                try:
+                    oid = next(self.candidate_iterator)
+                except StopIteration:
+                    del self.iterator
+                print(oid)
                 self.current_oid = oid
                 self.nremaining -= 1
                 if self.nremaining == 1:
                     print("All hosts recovered :)")
+                    self.candidate_hosts.replace("nan", "NULL", inplace=True)
+                    self.candidate_hosts.replace(-99, "NULL", inplace=True)
+                    self.candidate_hosts.replace(-999, "NULL", inplace=True)
+                    self.candidate_hosts.replace(-9999, "NULL", inplace=True)
                     display(self.candidate_hosts)
                     return
         except StopIteration:
@@ -247,6 +257,7 @@ class alerce_tns(Alerce):
                     candidate_host_redshift_spec = False
                     candidate_host_redshift_type = "photoz"
 
+
         if not "candidate_host_name" in locals():
             candidate_host_name = "NULL"
         if not "candidate_host_ra" in locals():
@@ -301,6 +312,11 @@ class alerce_tns(Alerce):
         except StopIteration:
             self.info.value =  "<div><font size='5'>All candidates revised</font></div>"
             print("\n\nSummary of host galaxies:")
+            self.candidate_hosts.replace("nan", "NULL", inplace=True)
+            self.candidate_hosts.replace(-99, "NULL", inplace=True)
+            self.candidate_hosts.replace(-999, "NULL", inplace=True)
+            self.candidate_hosts.replace(-9999, "NULL", inplace=True)
+            self.candidate_hosts.drop_duplicates(inplace=True)
             display(self.candidate_hosts)
 
 
