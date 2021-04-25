@@ -156,10 +156,11 @@ class alerce_tns(Alerce):
         try:
             print("Loading and skipping already saved hosts...")
             self.candidate_hosts = pd.read_csv("hosts/%s_hosts.csv" % refstring)
-            self.candidate_hosts.drop_duplicates(inplace=True, subset='oid')
+            self.candidate_hosts.reset_index(inplace=True)
+            self.candidate_hosts.drop_duplicates(inplace=True)
+            self.candidate_hosts.set_index("oid", inplace=True)
             print(self.candidate_hosts.shape)
             display(self.candidate_hosts)
-            self.candidate_hosts.set_index("oid", inplace=True)
             self.candidate_hosts.fillna("NULL", inplace=True)
         except:
             print("Cannot load galaxy information, creating new information.")
@@ -299,7 +300,7 @@ class alerce_tns(Alerce):
                              index = [self.current_oid])
         newdf.index.name = "oid"
         self.candidate_hosts = pd.concat([newdf, self.candidate_hosts])
-        display(self.candidate_hosts.head(1))
+        display(self.candidate_hosts)#.head(1))
 
         # move to next candidate
         try:
@@ -316,7 +317,12 @@ class alerce_tns(Alerce):
             self.candidate_hosts.replace(-99, "NULL", inplace=True)
             self.candidate_hosts.replace(-999, "NULL", inplace=True)
             self.candidate_hosts.replace(-9999, "NULL", inplace=True)
+            self.candidate_hosts.reset_index(inplace=True)
             self.candidate_hosts.drop_duplicates(inplace=True)
+            self.candidate_hosts.set_index("oid", inplace=True)
+            hostfile = "hosts/%s_hosts.csv" % self.refstring
+            print("Saving hosts to %s" % hostfile)
+            self.candidate_hosts.to_csv(hostfile)
             display(self.candidate_hosts)
 
 
