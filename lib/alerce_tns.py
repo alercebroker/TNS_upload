@@ -152,7 +152,7 @@ class alerce_tns(Alerce):
         # save current galaxies
         if not os.path.exists("hosts"):
             os.makedirs("hosts")
-            
+
         try:
             print("Loading and skipping already saved hosts...")
             self.candidate_hosts = pd.read_csv("hosts/%s_hosts.csv" % refstring)
@@ -300,7 +300,7 @@ class alerce_tns(Alerce):
                              index = [self.current_oid])
         newdf.index.name = "oid"
         self.candidate_hosts = pd.concat([newdf, self.candidate_hosts])
-        display(self.candidate_hosts)#.head(1))
+        display(self.candidate_hosts.head(1))
 
         # move to next candidate
         try:
