@@ -30,6 +30,7 @@ from io import BytesIO
 from PIL import Image
 import base64
 
+import tns_credentials
 from alerce.core import Alerce
 
 # whether to report photozs to TNS and skyportal
@@ -45,6 +46,10 @@ customSimbad.add_votable_fields('rvz_error')
 customSimbad.add_votable_fields('rvz_qual')
 customSimbad.TIMEOUT = 5 # 5 seconds
 
+# timeout for Ned
+customNed = Ned()
+customNed.TIMEOUT = 5
+
 class alerce_tns(Alerce):
     'module to interact with alerce api to send TNS report'
     
@@ -57,6 +62,12 @@ class alerce_tns(Alerce):
         #    "ZTF_API_URL": "https://dev.api.alerce.online"
         #}
         #self.load_config_from_object(my_config)
+        tns_credentials_file = "tns_credentials.json"
+        with open(tns_credentials_file) as jsonfile:
+            tns_params = json.load(jsonfile)
+        tns_id = tns_params["tns_id"]
+        tns_name = tns_params["tns_name"]
+        self.tns_headers = {'User-Agent': 'tns_marker{"tns_id":%s,"type": "bot", "name":"%s"}' % (tns_id, tns_name)}
         
         self.hosts_queried = {} # known hosts not to query again in SDSS
 
@@ -83,7 +94,7 @@ class alerce_tns(Alerce):
         if ned:
             try:
                 self.info.value = "Querying NED..."
-                table_ned = Ned.query_region(co, radius=0.025 * u.deg) #0.02
+                table_ned = customNed.query_region(co, radius=0.025 * u.deg) #0.02
                 if table_ned:
                     table_ned["cat_name"] = Column(["NED"], name="cat_name")
                     self.aladin.add_table(table_ned)
@@ -135,6 +146,7 @@ class alerce_tns(Alerce):
         hostfile = "hosts/%s_hosts.csv" % self.refstring
         print("Saving hosts to %s" % hostfile)
         self.candidate_hosts.to_csv(hostfile)
+        os.system("beep -f 555 -l 460")
 
 
     def select_hosts(self, candidates, refstring, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False):
@@ -721,7 +733,7 @@ class alerce_tns(Alerce):
         search_obj=OrderedDict(search_obj)
         search_data=[('api_key',(None, api_key)), ('data',(None,json.dumps(search_obj)))]
         try:
-            response=requests.post(search_url, files=search_data, timeout=(5, 10))
+            response=requests.post(search_url, headers=self.tns_headers, files=search_data, timeout=(5, 10))
             reply = response.json()["data"]["reply"]
             if reply != []:
                 return reply
@@ -743,14 +755,14 @@ class alerce_tns(Alerce):
             data = {
                 "objname": objname
             }
-    
+
             # get object type
             json_data = [('api_key', (None, api_key)),
                          ('data', (None, json.dumps(data)))]
 
             url_tns_api="https://www.wis-tns.org/api/get" #"https://wis-tns.weizmann.ac.il/api/get" 
             json_url = url_tns_api + '/object'
-            response = requests.post(json_url, files = json_data)
+            response = requests.post(json_url, headers=self.tns_headers, files = json_data)
             group_name = response.json()['data']['reply']['discovery_data_source']['group_name']
             discoverers.append(group_name)
             reporter = response.json()['data']['reply']['reporting_group']['group_name']
@@ -794,8 +806,8 @@ class alerce_tns(Alerce):
                        ('data', (None, json_read))]
             
             # send json report using request module
-            response = requests.post(json_url, files = json_data)
-
+            response = requests.post(json_url, headers=self.tns_headers, files = json_data)
+            
             # return response
             return response
         

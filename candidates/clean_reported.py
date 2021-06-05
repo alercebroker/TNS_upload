@@ -34,7 +34,7 @@ api_key = open("../API.key", "r").read()
 ignore_index = []
 def alerce_reported(oid):
     tns = client.get_tns(api_key, oid)
-    
+
     if tns:
         print("Astronomical transient is known:", tns, "\n")
         info = client.get_tns_reporting_info(api_key, oid)
