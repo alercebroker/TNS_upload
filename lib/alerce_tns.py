@@ -30,7 +30,6 @@ from io import BytesIO
 from PIL import Image
 import base64
 
-import tns_credentials
 from alerce.core import Alerce
 
 # whether to report photozs to TNS and skyportal
