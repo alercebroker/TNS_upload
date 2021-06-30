@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21aaqytjr,IC 3322A,186.42733,7.21667,44.19488440123214,NED,True,0.003319,NULL,

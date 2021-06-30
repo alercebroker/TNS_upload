@@ -1,0 +1,4 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21aaqqwsa,2MASX J21240027+3409114,321.00128624999996,34.153217777777776,0.4148089164676646,Simbad,False,0.083,NULL,C
+ZTF21aaqldxc,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+ZTF21aaqkjvg,WISEA J113058.87-142628.0,172.74533,-14.44111,0.30622234421089045,NED,NULL,NULL,NULL,NULL

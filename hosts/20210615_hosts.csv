@@ -1,0 +1,3 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21abgngjs,WISEA J184940.82+355336.8,282.42005,35.89361,2.3386338976241143,NED,NULL,NULL,NULL,NULL
+ZTF21abgmyzw,SDSS J155654.24+171834.8,239.22602,17.30967,1.3730892638085395,NED,NULL,NULL,NULL,NULL

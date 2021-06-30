@@ -1,0 +1,3 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21abbdure,WISEA J112528.75-251621.4,171.36975,-25.27258,2.5717749460823645,NED,NULL,NULL,NULL,NULL
+ZTF21abbdsyx,WISEA J114556.71-232538.5,176.48596,-23.42801,6.164770818754712,NED,NULL,NULL,NULL,NULL
