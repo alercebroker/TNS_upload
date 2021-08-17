@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21abclmdl,UGC 03933,114.40467,41.94706,17.43877863752409,NED,True,0.019677,NULL,
