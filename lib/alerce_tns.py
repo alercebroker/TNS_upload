@@ -93,7 +93,7 @@ class alerce_tns(Alerce):
         if ned:
             try:
                 self.info.value = "Querying NED..."
-                table_ned = customNed.query_region(co, radius=0.025 * u.deg) #0.02
+                table_ned = customNed.query_region(co, radius=0.025 * u.deg)
                 if table_ned:
                     table_ned["cat_name"] = Column(["NED"], name="cat_name")
                     self.aladin.add_table(table_ned)
@@ -111,7 +111,7 @@ class alerce_tns(Alerce):
         if SDSSDR16:
             try:
                 self.info.value= "Querying SDSS-DR16..."
-                table_SDSSDR16 = self.get_SDSSDR16(float(sn.meanra), float(sn.meandec), 20.)
+                table_SDSSDR16 = self.get_SDSSDR16(float(sn.meanra), float(sn.meandec), 60.)#20.)
                 if table_SDSSDR16:
                     table_SDSSDR16["cat_name"] = Column(["SDSSDR16"], name="cat_name")
                     self.aladin.add_table(table_SDSSDR16)
@@ -166,7 +166,9 @@ class alerce_tns(Alerce):
 
         try:
             print("Loading and skipping already saved hosts...")
+            print("hosts/%s_hosts.csv" % refstring)
             self.candidate_hosts = pd.read_csv("hosts/%s_hosts.csv" % refstring)
+            display(self.candidate.hosts.head())
             self.candidate_hosts.reset_index(inplace=True)
             self.candidate_hosts.drop_duplicates(inplace=True)
             self.candidate_hosts.set_index("oid", inplace=True)
@@ -718,12 +720,25 @@ class alerce_tns(Alerce):
             
         return report
 
+    def get_reset_time(self, response):
+        for name in response.headers:
+            value = response.headers.get(name)
+            if name.endswith('-remaining') and value == '0':
+                return int(response.headers.get(name.replace('remaining', 'reset')))
+        return None
+
+    def rate_limit_handling(self, response):
+        reset = self.get_reset_time(response)
+        if (response.status_code == 200):
+            if reset != None:
+                print("Sleep for " + str(reset + 1) + " sec")
+                time.sleep(reset + 1)
 
     def get_tns(self, api_key, oid):
         'get information about the candidate from TNS'
         
         # get ra, dec
-        stats = self.query_objects(oid=oid, format='pandas')
+        stats = self.query_objects(oid=oid, format='pandas').drop_duplicates(subset='oid')
         
         url_tns_api="https://www.wis-tns.org/api/get"
         search_url=url_tns_api+'/search'
@@ -733,6 +748,7 @@ class alerce_tns(Alerce):
         search_data=[('api_key',(None, api_key)), ('data',(None,json.dumps(search_obj)))]
         try:
             response=requests.post(search_url, headers=self.tns_headers, files=search_data, timeout=(5, 10))
+            self.rate_limit_handling(response)
             reply = response.json()["data"]["reply"]
             if reply != []:
                 return reply
@@ -762,6 +778,8 @@ class alerce_tns(Alerce):
             url_tns_api="https://www.wis-tns.org/api/get" #"https://wis-tns.weizmann.ac.il/api/get" 
             json_url = url_tns_api + '/object'
             response = requests.post(json_url, headers=self.tns_headers, files = json_data)
+            self.rate_limit_handling(response)
+            
             group_name = response.json()['data']['reply']['discovery_data_source']['group_name']
             discoverers.append(group_name)
             reporter = response.json()['data']['reply']['reporting_group']['group_name']
@@ -806,6 +824,7 @@ class alerce_tns(Alerce):
             
             # send json report using request module
             response = requests.post(json_url, headers=self.tns_headers, files = json_data)
+            self.rate_limit_handling(response)
             
             # return response
             return response
