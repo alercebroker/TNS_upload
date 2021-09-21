@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import psycopg2
 import json
 import json
+import time
 
 sys.path.append("../lib")
 from alerce_tns import *
@@ -15,16 +16,18 @@ from alerce_tns import *
 credentials_file = "../../usecases/alercereaduser_v4.json"
 with open(credentials_file) as jsonfile:
     params = json.load(jsonfile)["params"]
+print("Opening connection to database...")
 conn = psycopg2.connect(dbname=params['dbname'], user=params['user'], host=params['host'], password=params['password'])
+print("Ready.")
 
-try:
-    # old database
-    credentials_file = "../../usecases/alercereaduser_v2.json"
-    with open(credentials_file) as jsonfile:
-        params = json.load(jsonfile)["params"]
-    conn_old = psycopg2.connect(dbname=params['dbname'], user=params['user'], host=params['host'], password=params['password'])
-except:
-    print("Cannot read old database")
+#try:
+#    # old database
+#    credentials_file = "../../usecases/alercereaduser_v2.json"
+#    with open(credentials_file) as jsonfile:
+#        params = json.load(jsonfile)["params"]
+#    conn_old = psycopg2.connect(dbname=params['dbname'], user=params['user'], host=params['host'], password=params['password'])
+#except:
+#    print("Cannot read old database")
 
 # open the alerce client
 client = alerce_tns()
@@ -33,6 +36,9 @@ api_key = open("../API.key", "r").read()
 
 ignore_index = []
 def alerce_reported(oid):
+
+    time.sleep(1)
+
     tns = client.get_tns(api_key, oid)
 
     if tns:
@@ -50,8 +56,8 @@ def alerce_reported(oid):
 # read df
 print("Reading input data frame")
 df = pd.read_csv(sys.argv[1])
-print(df.head())
 df.set_index("object", inplace=True)
+print(df.head())
 print(df.shape)
 
 # compute time difference wrt first report and last detection
@@ -68,46 +74,30 @@ df = df.loc[df.delta_hours_last_date > -20]
 print(df.loc[df.delta_hours_last_date <= -20].index)
 print(df.shape)
 
-# sort by first detection (most recent first)
-df.sort_values(by=['first_detection_time'], ascending=False, inplace=True)
-
-# query ss_ztf
-print("Querying and removing known solar system objects")
-query='''
-SELECT oid, ssdistnr
-FROM ss_ztf
-WHERE
-oid in (%s)
-''' % ",".join(["'%s'" % oid for oid in df.index])
-ss = pd.read_sql_query(query, conn)
-ss.set_index("oid", inplace=True)
-mask = (ss.ssdistnr != -999)
-if mask.sum() > 0:
-    print("Ignoring %i known asteroids" % mask.sum())
-    ignore_index = ss.ssdistnr.loc[ss.ssdistnr != -999].index.tolist()
-    df = df.loc[~df.index.isin(ignore_index)]
-    print(ignore_index)
-    print(df.shape)
-else:
-    print("No known asteroids among the candidates")
-
-try:
-    # query stamp classifier probabilities in old database
-    print("Querying old classifier probabilities")
+if df.shape[0] > 0:
+    # sort by first detection (most recent first)
+    df.sort_values(by=['first_detection_time'], ascending=False, inplace=True)
+    
+    # query ss_ztf
+    print("Querying and removing known solar system objects")
+    print(df.index)
     query='''
-    SELECT 
-    oid, sn_prob
-    FROM
-    stamp_classification
+    SELECT oid, ssdistnr
+    FROM ss_ztf
     WHERE
     oid in (%s)
     ''' % ",".join(["'%s'" % oid for oid in df.index])
-    pp_old = pd.read_sql_query(query, conn_old)
-    pp_old.set_index("oid", inplace=True)
-    print("old probs.", pp_old.shape)
-except:
-    pp_old = pd.DataFrame()
-    print("Cannot read old database")
+    ss = pd.read_sql_query(query, conn)
+    ss.set_index("oid", inplace=True)
+    mask = (ss.ssdistnr != -999)
+    if mask.sum() > 0:
+        print("Ignoring %i known asteroids" % mask.sum())
+        ignore_index = ss.ssdistnr.loc[ss.ssdistnr != -999].index.tolist()
+        df = df.loc[~df.index.isin(ignore_index)]
+        print(ignore_index)
+        print(df.shape)
+    else:
+        print("No known asteroids among the candidates")
 
 # query stamp classifier probabilities in new database
 print("Querying new classifier probabilities")
@@ -132,13 +122,7 @@ print("Comparing probabilities")
 probs_comp = []
 def probstr(oid):
     probs = ""
-    if oid in pp_old.index and oid in pp_new.index:
-        probs += "P_old: %.3f" % pp_old.loc[oid].sn_prob
-        probs += ", P_new: %.3f" % pp_new.loc[oid].probability
-        probs_comp.append(pd.DataFrame([{"prob_old": pp_old.loc[oid].sn_prob, "prob_new": pp_new.loc[oid].probability, "oid": oid}]))
-    elif oid in pp_old.index:
-        probs += "P_old: %.3f" % pp_old.loc[oid].sn_prob
-    elif oid in pp_new.index:
+    if oid in pp_new.index:
         probs += "P_new: %.3f" % pp_new.loc[oid].probability
     return probs
 
@@ -173,14 +157,14 @@ if len(newcand) > 0:
     for idx, i in enumerate(newcand):
         print(idx, probstr(i), "https://alerce.online/object/%s" % i)
     for idx in range(int(len(newcand)/nchunk) + 1):
-        print("https://alerce.online/?" + "&".join(["oid=%s" % oid for oid in newcand[idx*nchunk:idx*nchunk+nchunk]]) + "&count=true&page=1&perPage=%i&sortDesc=false" % nchunk)
+        print("https://alerce.online/?" + "&".join(["oid=%s" % oid for oid in newcand[idx*nchunk:idx*nchunk+nchunk]]) + "&count=true&page=1&perPage=%i&sortDesc=false&selectedClassifier=stamp_classifier" % nchunk)
         
 if len(oldcand) > 0:
     print("\nCandidates with first detections not in the last 20 hours:")
     for idx, i in enumerate(oldcand):
         print(idx, probstr(i), "https://alerce.online/object/%s" % i)
     for idx in range(int(len(oldcand)/nchunk) + 1):
-        print("https://alerce.online/?" + "&".join(["oid=%s" % oid for oid in oldcand[idx*nchunk:idx*nchunk+nchunk]]) + "&count=true&page=1&perPage=%i&sortDesc=false" % nchunk)
+        print("https://alerce.online/?" + "&".join(["oid=%s" % oid for oid in oldcand[idx*nchunk:idx*nchunk+nchunk]]) + "&count=true&page=1&perPage=%i&sortDesc=falsee&selectedClassifier=stamp_classifier" % nchunk)
 
 # plot comparison
 print("Plotting probabiliy comparison")
