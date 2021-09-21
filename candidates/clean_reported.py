@@ -166,21 +166,21 @@ if len(oldcand) > 0:
     for idx in range(int(len(oldcand)/nchunk) + 1):
         print("https://alerce.online/?" + "&".join(["oid=%s" % oid for oid in oldcand[idx*nchunk:idx*nchunk+nchunk]]) + "&count=true&page=1&perPage=%i&sortDesc=falsee&selectedClassifier=stamp_classifier" % nchunk)
 
-# plot comparison
-print("Plotting probabiliy comparison")
-probs_comp = pd.concat(probs_comp)
-probs_comp.set_index("oid", inplace=True)
-print(probs_comp)
-fig, ax = plt.subplots(figsize=(10, 10))
-if (probs_comp.index.isin(newcand)).sum() > 0:
-    ax.scatter(probs_comp.loc[probs_comp.index.isin(newcand)].prob_old, probs_comp.loc[probs_comp.index.isin(newcand)].prob_new, marker='o', s=40, c='r', label="first detected within the last 20 h")
-if (probs_comp.index.isin(oldcand)).sum() > 0:
-    ax.scatter(probs_comp.loc[probs_comp.index.isin(oldcand)].prob_old, probs_comp.loc[probs_comp.index.isin(oldcand)].prob_new, marker = 'o', c='k', label="first detected >20 h ago")
-probs_comp.apply(lambda row: ax.text(row.prob_old, row.prob_new, row.name), axis=1)
-ax.plot([0, 1], [0, 1], c='gray')
-ax.axhline(0.4, c='r')
-ax.axvline(0.4, c='r')
-ax.set_xlabel("prob_old")
-ax.set_ylabel("prob_new")
-plt.legend()
-plt.savefig("Comparison_%s.png" % sys.argv[1])
+## plot comparison
+#print("Plotting probabiliy comparison")
+#probs_comp = pd.concat(probs_comp)
+#probs_comp.set_index("oid", inplace=True)
+#print(probs_comp)
+#fig, ax = plt.subplots(figsize=(10, 10))
+#if (probs_comp.index.isin(newcand)).sum() > 0:
+#    ax.scatter(probs_comp.loc[probs_comp.index.isin(newcand)].prob_old, probs_comp.loc[probs_comp.index.isin(newcand)].prob_new, marker='o', s=40, c='r', label="first detected within the last 20 h")
+#if (probs_comp.index.isin(oldcand)).sum() > 0:
+#    ax.scatter(probs_comp.loc[probs_comp.index.isin(oldcand)].prob_old, probs_comp.loc[probs_comp.index.isin(oldcand)].prob_new, marker = 'o', c='k', label="first detected >20 h ago")
+#probs_comp.apply(lambda row: ax.text(row.prob_old, row.prob_new, row.name), axis=1)
+#ax.plot([0, 1], [0, 1], c='gray')
+#ax.axhline(0.4, c='r')
+#ax.axvline(0.4, c='r')
+#ax.set_xlabel("prob_old")
+#ax.set_ylabel("prob_new")
+#plt.legend()
+#plt.savefig("Comparison_%s.png" % sys.argv[1])
