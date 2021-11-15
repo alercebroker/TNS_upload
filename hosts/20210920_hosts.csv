@@ -1,0 +1,4 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21acdeqjg,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+ZTF21acdenra,SDSS J180238.89+224844.8,270.662047066313,22.8124511094744,0.9096408961467966,SDSSDR16,False,0.095653,0.043296,photoz
+ZTF21acdemmd,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL

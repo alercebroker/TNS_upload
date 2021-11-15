@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21ackqbow,WISEA J031458.34+045428.2,48.74308,4.90783,2.0015429667647724,NED,True,0.037396,NULL,

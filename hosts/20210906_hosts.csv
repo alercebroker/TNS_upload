@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21abyqrli,KUG 0226-049,37.32729,-4.68383,10.336357186792712,NED,True,0.02925,NULL,
