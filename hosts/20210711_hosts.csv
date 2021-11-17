@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21abjwtrk,MRK 0667,211.21949,21.63351,2.2946897379230746,NED,True,0.016504,NULL,SPEC

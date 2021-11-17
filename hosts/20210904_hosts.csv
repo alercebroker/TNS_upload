@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21abxtfwo,AM 2337-230 NED02,354.99258,-22.78772,4.182490204170583,NED,True,0.025981,NULL,

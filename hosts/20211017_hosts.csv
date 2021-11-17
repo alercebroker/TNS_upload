@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF21aciiaio,NGC 3646,170.4295,20.16955,102.83912452409317,NED,True,0.014163,NULL,
