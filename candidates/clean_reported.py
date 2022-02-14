@@ -64,10 +64,10 @@ print(df.shape)
 print("Removing old reports")
 now = Time.now()
 df["now"] = df.apply(lambda row: Time.now().isot.replace(" ", "T")+"Z", axis=1).apply(pd.to_datetime)
-df["first_detection_time"] =  df.first_detection.apply(pd.to_datetime)
+df["first_detection_time"] =  df.first_detection.apply(lambda row: pd.to_datetime(row, utc=True))  # force UTC
 df["delta_hours_first_detection"] = (df.first_detection_time - df.now).apply(lambda x: x.total_seconds()/3600)
 
-df["last_date_time"] =  df.last_date.apply(pd.to_datetime)
+df["last_date_time"] =  df.last_date.apply(lambda row: pd.to_datetime(row, utc=True)) # force UTC
 df["delta_hours_last_date"] = (df.last_date_time - df.now).apply(lambda x: x.total_seconds()/3600)
 # select only reports during the last 20 hours
 df = df.loc[df.delta_hours_last_date > -20]
@@ -98,6 +98,9 @@ if df.shape[0] > 0:
         print(df.shape)
     else:
         print("No known asteroids among the candidates")
+else:
+    print("No new reports in the last 20 hr")
+    sys.exit()
 
 # query stamp classifier probabilities in new database
 print("Querying new classifier probabilities")
