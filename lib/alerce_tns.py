@@ -93,7 +93,7 @@ class alerce_tns(Alerce):
         if ned:
             try:
                 self.info.value = "Querying NED..."
-                table_ned = customNed.query_region(co, radius=0.025 * u.deg)
+                table_ned = customNed.query_region(co, radius=0.025 * u.deg)#0.025 * u.deg)
                 if table_ned:
                     table_ned["cat_name"] = Column(["NED"], name="cat_name")
                     self.aladin.add_table(table_ned)
@@ -401,7 +401,7 @@ class alerce_tns(Alerce):
         sdss_query = '?cmd=select top 1 p.objid, s.z, s.zerr, s.class, s.zwarning from photoobj as p join specobj as s on s.bestobjid = p.objid where p.objid=%s&format=csv' % objid
         url = '%s/SearchTools/SqlSearch%s' % (SDSS_DR16_url, sdss_query)
         print(url)
-        r = requests.get(url = url, timeout=(2, 5))
+        r = requests.get(url = url, timeout=(5, 10))
         df = pd.read_csv(BytesIO(r.content), comment="#")
 
         df['objid'] = df['objid'].astype(str)
@@ -647,10 +647,10 @@ class alerce_tns(Alerce):
 
         # prepare remarks
         if has_non_detections and dmdtstr != "":
-            remarks = "Early SN candidate%s classified using ALeRCE's stamp classifier - see http://arxiv.org/abs/2008.03309 - and the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % (dmdtstr, oid)
+            remarks = "Early SN candidate%s classified using ALeRCE's stamp classifier (Carrasco-Davis et al. 2021) and the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % (dmdtstr, oid)
             #remarks = "Early SN candidate classified by ALeRCE using the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % (oid)
         else:
-            remarks = "SN candidate classified using ALeRCE's stamp classifier - see http://arxiv.org/abs/2008.03309 - and the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % oid
+            remarks = "SN candidate classified using ALeRCE's stamp classifier (Carrasco-Davis et al. 2021) and the public ZTF stream. Discovery image and light curve in http://alerce.online/object/%s " % oid
         print(remarks)
 
         # check if object is in TNS
