@@ -1,0 +1,3 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22aafmste,SDSS J105438.73+055331.2,163.661364230652,5.89201747556839,1.4999559762432249,SDSSDR16,False,0.119775,0.07212,photoz
+ZTF22aafffpq,WISEA J123400.86-083924.1,188.50321,-8.65683,1.2221018950590767,NED,True,0.049751,NULL,
