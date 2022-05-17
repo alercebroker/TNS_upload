@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22aaagszv,MESSIER 031,10.68479,41.26906,281.12746524203146,NED,True,-0.001004,NULL,
