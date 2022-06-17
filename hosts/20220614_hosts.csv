@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22aaogfil,WISEA J015429.55+393013.7,28.62316,39.50384,0.8072968716148293,NED,NULL,NULL,NULL,NULL
