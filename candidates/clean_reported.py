@@ -8,6 +8,7 @@ import psycopg2
 import json
 import json
 import time
+import requests
 
 sys.path.append("../lib")
 from alerce_tns import *
@@ -34,11 +35,71 @@ client = alerce_tns()
 print("Getting API key...")
 api_key = open("../API.key", "r").read()
 
+def get_DR(oid, url="https://api.alerce.online/ztf/dr/v1/light_curve/"):
+    stats = client.query_object(oid, format='pandas')
+    
+    ra = float(stats.meanra)
+    dec = float(stats.meandec)
+    query = {'ra':ra, 'dec':dec, 'radius':1.5}
+
+    response = requests.get(url, query)
+    output = response.json()
+
+    return output
+
+def quantile(mags, mag):
+    if mag < np.min(mags):
+        return 0
+    for idx, i in enumerate(np.sort(mags)):
+        if mag > i:
+            return ((idx + 1) / mags.shape[0])
+
 ignore_index = []
+DRg = {}
+DRr = {}
+mindetg = {}
+mindetr = {}
+percg = {}
+percr = {}
+bands = {1: "g", 2: "r"}
 def alerce_reported(oid):
 
     time.sleep(1)
 
+    # get candidate detections
+    detections = client.query_detections(oid, format='pandas')
+    for fid in detections.fid.unique():
+        if "magpsf_corr" not in detections.loc[detections.fid == fid]:
+            continue
+        if detections.loc[detections.fid == fid].magpsf_corr.dropna().shape[0] == 0:
+            continue
+        
+        minmag = detections.loc[detections.fid == fid].magpsf_corr.dropna().min()
+        print(f"    Min mag {bands[fid]}: {minmag}")
+        if fid == 1:
+            mindetg[oid] = minmag
+        if fid == 2:
+            mindetr[oid] = minmag
+            
+    # get candidate forced photometry
+    DR = get_DR(oid)
+    for i in DR:
+        if i["filterid"] == 1:
+            if oid not in DRg.keys():
+                DRg[oid] = np.array(i["mag"])
+            else:
+                DRg[oid] = np.concatenate([DRg[oid], np.array(i["mag"])])
+        elif i["filterid"] == 2:
+            if oid not in DRr.keys():
+                DRr[oid] = np.array(i["mag"])
+            else:
+                DRr[oid] = np.concatenate([DRr[oid], np.array(i["mag"])])
+
+    if oid in DRg.keys() and oid in mindetg.keys():
+        print("    g DR quantile:", quantile(DRg[oid], mindetg[oid]))
+    if oid in DRr.keys() and oid in mindetr.keys():
+        print("    r DR quantile:", quantile(DRr[oid], mindetr[oid]))
+    
     tns = client.get_tns(api_key, oid)
 
     if tns:
@@ -159,6 +220,24 @@ nchunk=1000
 if len(newcand) > 0:
     for idx, i in enumerate(newcand):
         print(idx, probstr(i), "https://alerce.online/object/%s" % i)
+    print("    DR vs min alert mag quantiles:")
+    for idx, i in enumerate(newcand):
+        if i in DRg.keys() and i in mindetg.keys():
+            qg = quantile(DRg[i], mindetg[i])
+        else:
+            qg = -1
+        if i in DRr.keys() and i in mindetr.keys():
+            qr = quantile(DRr[i], mindetr[i])
+        else:
+            qr = -1
+        if qg == 0 or qr == 0:
+            continue
+        else:
+            if qg > 0:
+                print("   ", i, "g DR quantile:", "%.5f" % qg, ", min g mag stream: %.5f, min g mag DR: %.5f" % (mindetg[i], np.min(DRg[i])))
+            if qr > 0:
+                print("   ", i, "r DR quantile:", "%.5f" % qr, ", min r mag stream: %.5f, min r mag DR: %.5f" % (mindetr[i], np.min(DRr[i])))
+            
     for idx in range(int(len(newcand)/nchunk) + 1):
         print("https://alerce.online/?" + "&".join(["oid=%s" % oid for oid in newcand[idx*nchunk:idx*nchunk+nchunk]]) + "&count=true&page=1&perPage=%i&sortDesc=false&selectedClassifier=stamp_classifier" % nchunk)
         
@@ -166,8 +245,26 @@ if len(oldcand) > 0:
     print("\nCandidates with first detections not in the last 20 hours:")
     for idx, i in enumerate(oldcand):
         print(idx, probstr(i), "https://alerce.online/object/%s" % i)
+    print("    DR vs min alert mag quantiles:")
+    for idx, i in enumerate(oldcand):
+        if i in DRg.keys() and i in mindetg.keys():
+            qg = quantile(DRg[i], mindetg[i])
+        else:
+            qg = -1
+        if i in DRr.keys() and i in mindetr.keys():
+            qr = quantile(DRr[i], mindetr[i])
+        else:
+            qr = -1
+        if qg == 0 or qr == 0:
+            continue
+        else:
+            if qg > 0:
+                print("   ", i, "g DR quantile:", "%.5f" % qg, ", min g mag stream: %.5f, min g mag DR: %.5f" % (mindetg[i], np.min(DRg[i])))
+            if qr > 0:
+                print("   ", i, "r DR quantile", "%.5f" % qr, ", min r mag stream: %.5f, min g mag DR: %.5f" % (mindetr[i], np.min(DRr[i])))
     for idx in range(int(len(oldcand)/nchunk) + 1):
         print("https://alerce.online/?" + "&".join(["oid=%s" % oid for oid in oldcand[idx*nchunk:idx*nchunk+nchunk]]) + "&count=true&page=1&perPage=%i&sortDesc=falsee&selectedClassifier=stamp_classifier" % nchunk)
+
 
 ## plot comparison
 #print("Plotting probabiliy comparison")
