@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from pandas.io.json import json_normalize
 
+import warnings
+
 from datetime import datetime
 from IPython.display import HTML
 
@@ -70,6 +72,8 @@ class alerce_tns(Alerce):
         
         self.hosts_queried = {} # known hosts not to query again in SDSS
 
+        self.bestguess = None
+
     def start_aladin(self, survey="P/PanSTARRS/DR1/color-z-zg-g", layout_width=70, fov=0.025):
         'Start a pyaladin window (for jupyter notebooks) together with an information window'
 
@@ -79,68 +83,212 @@ class alerce_tns(Alerce):
         self.box = Box(children=[self.aladin, self.info], layout=self.box_layout)
         display(self.box)
 
+
+    def find_bestguess_host(self, table_cand, table_bestguess, xmatches):
+
+        newdf = []
+        for key in xmatches.keys():
+            for i in xmatches[key]:
+                hostdata = self.process_data(i)
+                if hostdata["candidate_host_ra"] != "NULL" and hostdata["candidate_host_dec"] != "NULL":
+                    hostdata["candidate_host_offset"] = coordinates.SkyCoord(hostdata["candidate_host_ra"] * u.deg, hostdata["candidate_host_dec"] * u.deg, frame='icrs').separation(
+                        coordinates.SkyCoord(float(table_cand["RA"]) * u.deg, float(table_cand["DEC"]) * u.deg, frame='icrs')).arcsecond
+                    hostdata["candidate_host_offset_bestguess"] = coordinates.SkyCoord(hostdata["candidate_host_ra"] * u.deg, hostdata["candidate_host_dec"] * u.deg, frame='icrs').separation(
+                        coordinates.SkyCoord(float(table_bestguess['ra']) * u.deg, float(table_bestguess["dec"]) * u.deg, frame='icrs')).arcsecond
+                else:
+                    hostdata["candidate_host_offset"] = "NULL"
+
+                newdf.append(pd.DataFrame([[hostdata["candidate_host_name"],
+                               hostdata["candidate_host_ra"],
+                               hostdata["candidate_host_dec"],
+                               hostdata["candidate_host_offset"],
+                               hostdata["candidate_host_offset_bestguess"],
+                               hostdata["candidate_host_source"],
+                               hostdata["candidate_host_redshift_spec"],
+                               hostdata["candidate_host_redshift"],
+                               hostdata["candidate_host_redshift_error"],
+                               hostdata["candidate_host_redshift_type"]]],
+                            columns = ["host_name", "host_ra", "host_dec", "host_offset", "host_offset_bestguess", "host_source",
+                                        "host_redshift_spec", "host_redshift", "host_redshift_error", "host_redshift_type"],
+                             index = [str(table_cand["ZTF_oid"][0])]))
+
+        newdf = pd.concat(newdf).sort_values("host_offset_bestguess")
+        newdf.replace(["NULL", "nan", -99, -999, -9999], np.nan, inplace=True)
+        newdf.index.name = "oid"
+
+        # otherwise, the closest
+        min_offset = newdf.iloc[0].host_offset_bestguess
+        nmin_offset = 10
+        # spectroscopic redshifts with error
+        mask_specz_err = newdf.host_redshift_spec & (newdf.host_redshift_error > 0)
+        if mask_specz_err.sum() > 0:
+            min_offset_specz_err = newdf.loc[mask_specz_err].iloc[0].host_offset_bestguess
+            if min_offset_specz_err < nmin_offset * max(1, min_offset):
+                return newdf.loc[mask_specz_err].iloc[0]
+        # spectroscopic redshifts
+        mask_specz = newdf.host_redshift_spec
+        if mask_specz.sum() > 0:
+            min_offset_specz = newdf.loc[mask_specz].iloc[0].host_offset_bestguess
+            if min_offset_specz < nmin_offset * max(1, min_offset):
+                return newdf.loc[mask_specz].iloc[0]
+        # photometric redshifts
+        mask_photoz = newdf.host_redshift_type == "photoz"
+        if mask_photoz.sum() > 0:
+            min_offset_photoz = newdf.loc[mask_photoz].iloc[0].host_offset_bestguess
+            if min_offset_photoz < nmin_offset * max(1, min_offset):
+                return newdf.loc[mask_photoz].iloc[0]
+        # return closest to best guess 
+        return newdf.iloc[0]
         
     def view_object(self, oid, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False):
         'display an object in aladin, query different catalogs and show their information when hovering with the mouse'
-        
+
         # start aladin widget
         self.start_aladin()
 
         sn = self.query_objects(oid=oid, format='pandas')
         self.aladin.target = "%f %f" % (sn.meanra, sn.meandec)
         co = coordinates.SkyCoord(ra=sn.meanra, dec=sn.meandec, unit=(u.deg, u.deg), frame='fk5')
-
-        if ned:
-            try:
-                self.info.value = "Querying NED..."
-                table_ned = customNed.query_region(co, radius=0.025 * u.deg)#0.025 * u.deg)
-                if table_ned:
-                    table_ned["cat_name"] = Column(["NED"], name="cat_name")
-                    self.aladin.add_table(table_ned)
-            except:
-                print("Cannot connect with NED...")
-        if simbad:
-            try:
-                self.info.value = "Querying Simbad..."
-                table_simbad = customSimbad.query_region(co, radius=0.01 * u.deg)#, equinox='J2000.0')   
-                if table_simbad:
-                    table_simbad["cat_name"] = Column(["Simbad"], name="cat_name")
-                    self.aladin.add_table(table_simbad)
-            except:
-                print("Cannot connect with Simbad...")
-        if SDSSDR16:
-            try:
-                self.info.value= "Querying SDSS-DR16..."
-                table_SDSSDR16 = self.get_SDSSDR16(float(sn.meanra), float(sn.meandec), 60.)#20.)
-                if table_SDSSDR16:
-                    table_SDSSDR16["cat_name"] = Column(["SDSSDR16"], name="cat_name")
-                    self.aladin.add_table(table_SDSSDR16)
-            except:
-                print("Cannot query SDSS-DR16")
-        if catsHTM:
-            try:
-                self.info.value = "Querying catsHTM..."
-                tables_catsHTM = self.catsHTM_conesearch(oid, 'all', 0.5)#20)
-                if tables_catsHTM:
-                    for key in tables_catsHTM.keys():
-                        self.aladin.add_table(tables_catsHTM[key])
-                        tables_catsHTM[key]["cat_name"] = Column(["catsHTM_%s" % key], name="cat_name")
-            except:
-                print("Cannot connect with catsHTM")
-        if vizier:
-            self.info.value = "Querying Vizier..."
-            table_vizier = Vizier.query_region(co, radius=1. * u.arcsec)#0.01 * u.deg)
-            if table_vizier:        
-                for k in table_vizier.keys():
-                    table_vizier[k]["cat_name"] = Column(["Vizier_%s" % k], name="cat_name")
-                    self.aladin.add_table(table_vizier[k])
-        self.info.value = ""
+            
+        # ZTF candidate
         table_cand = Table.from_pandas(pd.DataFrame(
                 data={"ZTF_oid": [oid], "RA": [float(sn.meanra)], "DEC": [float(sn.meandec)], "cat_name": ["ZTF"]}))
         self.aladin.add_table(table_cand)
 
-        self.aladin.add_listener('objectClicked', self.process_objectClicked)
+        # best guess
+        bestguess = False
+        if not self.bestguess is None and self.dobestguess:
+            if oid in self.bestguess.index.values:
+                bestguess = True
+        if bestguess:
+            table_delight = Table()
+            radelight = self.bestguess.loc[oid].ra
+            decdelight = self.bestguess.loc[oid].dec
+            table_delight["ra"] = [radelight * u.degree]
+            table_delight["dec"] = [decdelight * u.degree]
+            table_delight["cat_name"] = str("DELIGHT")
+            table_delight["Object Name"] = oid
+            cobestguess = coordinates.SkyCoord(ra=radelight, dec=decdelight, unit=(u.deg, u.deg), frame='fk5')
+            # collect all data
+            xmatches = {}
+            if ned:
+                table_ned = customNed.query_region(cobestguess, radius=0.01 * u.deg)
+                if table_ned:
+                    xmatches["NED"] = table_ned
+                    xmatches["NED"]["cat_name"] = Column(["NED"], name="cat_name")
+            if simbad:
+                table_simbad = customSimbad.query_region(cobestguess, radius=0.01 * u.deg)#, equinox='J2000.0')   
+                if table_simbad:
+                    xmatches["Simbad"] = table_simbad
+                    xmatches["Simbad"]["cat_name"] = Column(["Simbad"], name="cat_name")
+            if SDSSDR16:
+                table_SDSSDR16 = self.get_SDSSDR16(float(radelight), float(decdelight), 30.)
+                if table_SDSSDR16:
+                    xmatches["SDSSDR16"] = table_SDSSDR16
+                    xmatches["SDSSDR16"]["cat_name"] = Column(["SDSSDR16"], name="cat_name")
+            best = self.find_bestguess_host(table_cand, table_delight, xmatches)
+            best = pd.DataFrame(best).transpose()
+            best.index.name = "oid"
+
+            display(best)
+            table_best = Table()
+            for i in best:
+                if i in ["host_ra", "host_dec"]:
+                    table_best[i[5:]] = float(best[i]) * u.degree
+                else:
+                    table_best[i] = [str(best[i].values)]
+            table_best["cat_name"] = "bestguess"
+            
+            #with warnings.catch_warnings():
+            #    warnings.simplefilter('ignore')
+            self.aladin.add_table(table_best)
+
+            self.candidate_hosts = pd.concat([best, self.candidate_hosts])
+
+            # move to next candidate
+            try:
+                if hasattr(self, "candidate_iterator"):
+                    self.nremaining -= 1
+                    print("%i candidates remaining" % self.nremaining)
+                    oid = next(self.candidate_iterator)
+                    self.current_oid = oid
+                    self.view_object(oid, ned=self.do_ned, simbad=self.do_simbad, SDSSDR16=self.do_SDSSDR16, catsHTM=self.do_catsHTM, vizier=self.do_vizier)
+            except StopIteration:
+                self.info.value =  "<div><font size='5'>All candidates revised</font></div>"
+                print("\n\nSummary of host galaxies:")
+                self.candidate_hosts.replace("nan", "NULL", inplace=True)
+                self.candidate_hosts.replace(-99, "NULL", inplace=True)
+                self.candidate_hosts.replace(-999, "NULL", inplace=True)
+                self.candidate_hosts.replace(-9999, "NULL", inplace=True)
+                self.candidate_hosts.reset_index(inplace=True)
+                self.candidate_hosts.drop_duplicates(inplace=True)
+                self.candidate_hosts.set_index("oid", inplace=True)
+                hostfile = "hosts/%s_hosts.csv" % self.refstring
+                print("Saving hosts to %s" % hostfile)
+                self.candidate_hosts.to_csv(hostfile)
+                display(self.candidate_hosts)
+            
+            #if ned and "NED" in xmatches.keys():
+            #    if xmatches["NED"]:
+            #        self.aladin.add_table(xmatches["NED"])
+            #if simbad and "Simbad" in xmatches.keys():
+            #    if xmatches["Simbad"]:
+            #        self.aladin.add_table(xmatches["Simbad"])
+            #if SDSSDR16 and "SDSSDR16" in xmatches.keys():
+            #    if xmatches["SDSSDR16"]:
+            #        self.aladin.add_table(xmatches["SDSSDR16"])
+
+        else:
+
+            if ned:
+                try:
+                    self.info.value = "Querying NED..."
+                    table_ned = customNed.query_region(co, radius=0.025 * u.deg)#0.025 * u.deg)
+                    if table_ned:
+                        table_ned["cat_name"] = Column(["NED"], name="cat_name")
+                        self.aladin.add_table(table_ned)
+                except:
+                    print("Cannot connect with NED...")
+            if simbad:
+                try:
+                    self.info.value = "Querying Simbad..."
+                    table_simbad = customSimbad.query_region(co, radius=0.01 * u.deg)#, equinox='J2000.0')   
+                    if table_simbad:
+                        table_simbad["cat_name"] = Column(["Simbad"], name="cat_name")
+                        self.aladin.add_table(table_simbad)
+                except:
+                    print("Cannot connect with Simbad...")
+            if SDSSDR16:
+                try:
+                    self.info.value= "Querying SDSS-DR16..."
+                    table_SDSSDR16 = self.get_SDSSDR16(float(sn.meanra), float(sn.meandec), 60.)#20.)
+                    if table_SDSSDR16:
+                        table_SDSSDR16["cat_name"] = Column(["SDSSDR16"], name="cat_name")
+                        self.aladin.add_table(table_SDSSDR16)
+                except:
+                    print("Cannot query SDSS-DR16")
+            if catsHTM:
+                try:
+                    self.info.value = "Querying catsHTM..."
+                    tables_catsHTM = self.catsHTM_conesearch(oid, 'all', 0.5)#20)
+                    if tables_catsHTM:
+                        for key in tables_catsHTM.keys():
+                            self.aladin.add_table(tables_catsHTM[key])
+                            tables_catsHTM[key]["cat_name"] = Column(["catsHTM_%s" % key], name="cat_name")
+                except:
+                    print("Cannot connect with catsHTM")
+            if vizier:
+                self.info.value = "Querying Vizier..."
+                table_vizier = Vizier.query_region(co, radius=1. * u.arcsec)#0.01 * u.deg)
+                if table_vizier:        
+                    for k in table_vizier.keys():
+                        table_vizier[k]["cat_name"] = Column(["Vizier_%s" % k], name="cat_name")
+                        self.aladin.add_table(table_vizier[k])
+
+        self.info.value = ""
+
         self.aladin.add_listener('objectHovered', self.process_objectHovered)
+        self.aladin.add_listener('objectClicked', self.process_objectClicked)
 
         hostfile = "hosts/%s_hosts.csv" % self.refstring
         print("Saving hosts to %s" % hostfile)
@@ -148,7 +296,7 @@ class alerce_tns(Alerce):
         os.system("beep -f 555 -l 460")
 
 
-    def select_hosts(self, candidates, refstring, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False):
+    def select_hosts(self, candidates, refstring, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False, dobestguess=True):
         'check a list of object ids using an iterator'
 
         # copy survey selections
@@ -158,7 +306,8 @@ class alerce_tns(Alerce):
         self.do_catsHTM = catsHTM
         self.do_vizier = vizier
         self.candidate_iterator = iter(candidates)
-        self.nremaining = len(candidates) 
+        self.nremaining = len(candidates)
+        self.dobestguess = dobestguess
 
         # save current galaxies
         if not os.path.exists("hosts"):
@@ -168,13 +317,14 @@ class alerce_tns(Alerce):
             print("Loading and skipping already saved hosts...")
             print("hosts/%s_hosts.csv" % refstring)
             self.candidate_hosts = pd.read_csv("hosts/%s_hosts.csv" % refstring)
-            display(self.candidate.hosts.head())
             self.candidate_hosts.reset_index(inplace=True)
             self.candidate_hosts.drop_duplicates(inplace=True)
             self.candidate_hosts.set_index("oid", inplace=True)
             print(self.candidate_hosts.shape)
-            display(self.candidate_hosts)
+            if not dobestguess:
+                self.candidate_hosts.drop(candidates, inplace=True)
             self.candidate_hosts.fillna("NULL", inplace=True)
+            display(self.candidate_hosts)
         except:
             print("Cannot load galaxy information, creating new information.")
             self.candidate_hosts = pd.DataFrame()
@@ -185,7 +335,7 @@ class alerce_tns(Alerce):
             self.current_oid = oid
             self.refstring = refstring
             # in case we reload data skip oids
-            while (oid  in list(self.candidate_hosts.index)):
+            while (oid in list(self.candidate_hosts.index)):
                 try:
                     oid = next(self.candidate_iterator)
                 except StopIteration:
@@ -199,6 +349,7 @@ class alerce_tns(Alerce):
                     self.candidate_hosts.replace(-99, "NULL", inplace=True)
                     self.candidate_hosts.replace(-999, "NULL", inplace=True)
                     self.candidate_hosts.replace(-9999, "NULL", inplace=True)
+                    self.candidate_hosts.fillna("NULL", inplace=True)
                     display(self.candidate_hosts)
                     return
         except StopIteration:
@@ -206,108 +357,118 @@ class alerce_tns(Alerce):
 
         self.view_object(oid, ned=self.do_ned, simbad=self.do_simbad, SDSSDR16=self.do_SDSSDR16, catsHTM=self.do_catsHTM, vizier=self.do_vizier)
 
-        
-    def process_objectClicked(self, data):
-        'move to following object when clicking over an object'
+    def process_data(self, data):
 
+        hostdata = {}
+        
         # save clicked information
-        if data["data"]["cat_name"] != "ZTF":
-            candidate_host_source = data["data"]["cat_name"]
-        if data["data"]["cat_name"] == "NED":
-            candidate_host_ra = data["data"]["RA"]
-            candidate_host_dec = data["data"]["DEC"]
-            candidate_host_name = data["data"]["Object Name"]
-            if "Redshift" in data["data"].keys():
-                if "Redshift Flag" in data["data"].keys():
-                    if data["data"]["Redshift"] in ["nan", "-99", "-999.0", "-9999.0"]:
-                        print("Ignoring redshift")
-                    else:
-                        candidate_host_redshift = data["data"]["Redshift"]
-                        if data["data"]["Redshift Flag"] in ["", "SPEC"]:
-                            candidate_host_redshift_spec = True
-                        else:
-                            candidate_host_redshift_spec = False
-                        candidate_host_redshift_type = data["data"]["Redshift Flag"]
-        elif data["data"]["cat_name"] == "Simbad":
-            coords = coordinates.SkyCoord("%s %s" % (data["data"]["RA"], data["data"]["DEC"]), unit=(u.hourangle, u.deg), frame='icrs')
-            candidate_host_ra = coords.ra / u.deg
-            candidate_host_dec = coords.dec / u.deg
-            candidate_host_name = data["data"]["MAIN_ID"]
-            if "Z_VALUE" in data["data"].keys():
-                if not data["data"]["Z_VALUE"] in ["nan", "-99", "-999.0", "-9999.0"]:
-                    candidate_host_redshift = data["data"]["Z_VALUE"]
-                    if data["data"]["RVZ_ERROR"] != "nan": # based on experience, we only trust Simbad redshifts if they have an associated error
-                        candidate_host_redshift_spec = True
-                        if data["data"]["RVZ_TYPE"] == "z":
-                            candidate_host_redshift_error = data["data"]["RVZ_ERROR"]
-                        elif data["data"]["RVZ_TYPE"] == "v":
+        if data["cat_name"] != "ZTF":
+            hostdata["candidate_host_source"] = data["cat_name"]
+        if data["cat_name"] == "NED":
+            hostdata["candidate_host_ra"] = data["RA"]
+            hostdata["candidate_host_dec"] = data["DEC"]
+            hostdata["candidate_host_name"] = data["Object Name"]
+            hostdata["candidate_host_redshift_spec"] = False
+            if "Redshift" in data.keys():
+                if "Redshift Flag" in data.keys():
+                    if not str(data["Redshift"]) in ["nan", "-99", "-999.0", "-9999.0", "--"]:
+                        hostdata["candidate_host_redshift"] = data["Redshift"]
+                        if data["Redshift Flag"] in ["", "SPEC"]:
+                            hostdata["candidate_host_redshift_spec"] = True
+                        hostdata["candidate_host_redshift_type"] = data["Redshift Flag"]
+        elif data["cat_name"] == "Simbad":
+            coords = coordinates.SkyCoord("%s %s" % (data["RA"], data["DEC"]), unit=(u.hourangle, u.deg), frame='icrs')
+            hostdata["candidate_host_ra"] = coords.ra / u.deg
+            hostdata["candidate_host_dec"] = coords.dec / u.deg
+            hostdata["candidate_host_name"] = data["MAIN_ID"]
+            hostdata["candidate_host_redshift_spec"] = False
+            if "Z_VALUE" in data.keys():
+                if not data["Z_VALUE"] in ["nan", "-99", "-999.0", "-9999.0"]:
+                    hostdata["candidate_host_redshift"] = data["Z_VALUE"]
+                    if data["RVZ_ERROR"] != "nan": # based on experience, we only trust Simbad redshifts if they have an associated error
+                        hostdata["candidate_host_redshift_spec"] = True
+                        if data["RVZ_TYPE"] == "z":
+                            hostdata["candidate_host_redshift_error"] = data["RVZ_ERROR"]
+                        elif data["RVZ_TYPE"] == "v":
                             cspeed = 299792. # km/s
-                            candidate_host_redshift_error = data["data"]["RVZ_ERROR"] / cspeed
-                        else:
-                            candidate_host_redshift_spec = False
-                    else:
-                        candidate_host_redshift_spec = False
-                    if "RVZ_QUAL" in data["data"].keys():
-                        candidate_host_redshift_type = data["data"]["RVZ_QUAL"]  # this assumes that Simbad only returns spectroscopic redshifts
-        elif data["data"]["cat_name"] == "SDSSDR16":
-            objid = data["data"]["objid"]
-            candidate_host_name = self.hosts_queried[objid]["host_name"]
-            candidate_host_ra = data["data"]["ra"]
-            candidate_host_dec = data["data"]["dec"]
+                            hostdata["candidate_host_redshift_error"] = data["RVZ_ERROR"] / cspeed
+                    if "RVZ_QUAL" in data.keys():
+                        hostdata["candidate_host_redshift_type"] = data["RVZ_QUAL"]  # this assumes that Simbad only returns spectroscopic redshifts
+        elif data["cat_name"] == "SDSSDR16":
+
+            objid = data["objid"]
+            
+            # long name
+            host_name =  "SDSS J%s" % coordinates.SkyCoord(ra=data["ra"]*u.degree, dec=data["dec"]*u.degree, frame='icrs').to_string(style="hmsdms", sep="", pad=True, precision=2)[:-1].replace(" ", "")
+            self.info.value =  "Querying SDSSDR16 object %s..." % str(objid)
+            if objid not in self.hosts_queried.keys():
+                self.hosts_queried[objid] = self.get_SDSSDR16_redshift(objid)
+                self.hosts_queried[objid]["host_name"] = host_name
+
+            hostdata["candidate_host_name"] = self.hosts_queried[objid]["host_name"]
+            hostdata["candidate_host_ra"] = data["ra"]
+            hostdata["candidate_host_dec"] = data["dec"]
+
             if "specz" in self.hosts_queried[objid].keys():
                 if self.hosts_queried[objid]["specz"] in ["nan", "-99", "-999.0", "-9999.0"]:
                     print("Ignoring redshift...")
                 else:
-                    candidate_host_redshift = self.hosts_queried[objid]["specz"]
-                    candidate_host_redshift_spec = True
-                    candidate_host_redshift_error = self.hosts_queried[objid]["specz_err"]
-                    candidate_host_redshift_type = "specz"
+                    hostdata["candidate_host_redshift"] = self.hosts_queried[objid]["specz"]
+                    hostdata["candidate_host_redshift_spec"] = True
+                    hostdata["candidate_host_redshift_error"] = self.hosts_queried[objid]["specz_err"]
+                    hostdata["candidate_host_redshift_type"] = "specz"
             elif "photoz" in self.hosts_queried[objid].keys():
                 if self.hosts_queried[objid]["photoz"] in ["nan", "-99", "-999.0", "-9999.0"]:
                     print("Ignoring redshift...")
                 else:
-                    candidate_host_redshift = self.hosts_queried[objid]["photoz"]
-                    candidate_host_redshift_error = self.hosts_queried[objid]["photoz_err"]
-                    candidate_host_redshift_spec = False
-                    candidate_host_redshift_type = "photoz"
+                    hostdata["candidate_host_redshift"] = self.hosts_queried[objid]["photoz"]
+                    hostdata["candidate_host_redshift_error"] = self.hosts_queried[objid]["photoz_err"]
+                    hostdata["candidate_host_redshift_spec"] = False
+                    hostdata["candidate_host_redshift_type"] = "photoz"
+                    
+        if not "candidate_host_name" in hostdata.keys():
+            hostdata["candidate_host_name"] = "NULL"
+        if not "candidate_host_ra" in hostdata.keys():
+            hostdata["candidate_host_ra"] = "NULL"
+        if not "candidate_host_dec" in hostdata.keys():
+            hostdata["candidate_host_dec"] = "NULL"
+        if not "candidate_host_redshift" in hostdata.keys():
+            hostdata["candidate_host_redshift"] = "NULL"
+        if not "candidate_host_redshift_spec" in hostdata.keys():
+            hostdata["candidate_host_redshift_spec"] = "NULL"
+        if not "candidate_host_redshift_error" in hostdata.keys():
+            hostdata["candidate_host_redshift_error"] = "NULL"
+        if not "candidate_host_redshift_type" in hostdata.keys():
+            hostdata["candidate_host_redshift_type"] = "NULL"
+        if not "candidate_host_source" in hostdata.keys():
+            hostdata["candidate_host_source"] = "NULL"
 
+        return hostdata
+        
+    def process_objectClicked(self, data):
+        'move to following object when clicking over an object'
 
-        if not "candidate_host_name" in locals():
-            candidate_host_name = "NULL"
-        if not "candidate_host_ra" in locals():
-            candidate_host_ra = "NULL"
-        if not "candidate_host_dec" in locals():
-            candidate_host_dec = "NULL"
-        if not "candidate_host_redshift" in locals():
-            candidate_host_redshift = "NULL"
-        if not "candidate_host_redshift_spec" in locals():
-            candidate_host_redshift_spec = "NULL"
-        if not "candidate_host_redshift_error" in locals():
-            candidate_host_redshift_error = "NULL"
-        if not "candidate_host_redshift_type" in locals():
-            candidate_host_redshift_type = "NULL"
-        if not "candidate_host_source" in locals():
-            candidate_host_source = "NULL"
+        hostdata = self.process_data(data["data"])
 
         # get candidate positionstats
         stats = self.query_objects(oid=self.current_oid, format='pandas')
         cand_ra, cand_dec = float(stats.meanra), float(stats.meandec)
         # compute offset to galaxy
-        if candidate_host_ra != "NULL" and candidate_host_dec != "NULL":
-            candidate_host_offset = coordinates.SkyCoord(candidate_host_ra * u.deg, candidate_host_dec * u.deg, frame='icrs').separation(
+        if hostdata["candidate_host_ra"] != "NULL" and hostdata["candidate_host_dec"] != "NULL":
+            hostdata["candidate_host_offset"] = coordinates.SkyCoord(hostdata["candidate_host_ra"] * u.deg, hostdata["candidate_host_dec"] * u.deg, frame='icrs').separation(
                     coordinates.SkyCoord(cand_ra * u.deg, cand_dec * u.deg, frame='icrs')).arcsecond
         else:
-            candidate_host_offset = "NULL"
+            hostdata["candidate_host_offset"] = "NULL"
 
-        newdf = pd.DataFrame([[candidate_host_name,
-                               candidate_host_ra,
-                               candidate_host_dec,
-                               candidate_host_offset,
-                               candidate_host_source,
-                               candidate_host_redshift_spec,
-                               candidate_host_redshift,
-                               candidate_host_redshift_error,
-                               candidate_host_redshift_type]],
+        newdf = pd.DataFrame([[hostdata["candidate_host_name"],
+                               hostdata["candidate_host_ra"],
+                               hostdata["candidate_host_dec"],
+                               hostdata["candidate_host_offset"],
+                               hostdata["candidate_host_source"],
+                               hostdata["candidate_host_redshift_spec"],
+                               hostdata["candidate_host_redshift"],
+                               hostdata["candidate_host_redshift_error"],
+                               hostdata["candidate_host_redshift_type"]]],
                              columns = ["host_name", "host_ra", "host_dec", "host_offset", "host_source",
                                         "host_redshift_spec", "host_redshift", "host_redshift_error", "host_redshift_type"],
                              index = [self.current_oid])
@@ -330,6 +491,7 @@ class alerce_tns(Alerce):
             self.candidate_hosts.replace(-99, "NULL", inplace=True)
             self.candidate_hosts.replace(-999, "NULL", inplace=True)
             self.candidate_hosts.replace(-9999, "NULL", inplace=True)
+            self.candidate_hosts.fillna("NULL", inplace=True)
             self.candidate_hosts.reset_index(inplace=True)
             self.candidate_hosts.drop_duplicates(inplace=True)
             self.candidate_hosts.set_index("oid", inplace=True)
@@ -352,6 +514,7 @@ class alerce_tns(Alerce):
                 self.hosts_queried[objid]["host_name"] = host_name
             for k in self.hosts_queried[objid].keys():
                 data["data"][k] = self.hosts_queried[objid][k]
+                
         output = "<h2>%s</h2>" % self.current_oid
         output += "<h2>%s</h2>" % data["data"]["cat_name"]
         sel_keys = data["data"].keys()#["type", 'ra', 'dec']
@@ -369,7 +532,7 @@ class alerce_tns(Alerce):
                 if data["data"][key] in ['nan', '']:
                     continue
                 if not re.compile('.*redshift.*', re.IGNORECASE).match(key) and not re.compile('.*photoz.*', re.IGNORECASE).match(key):
-                    output += "<tr><th><font size='1>%s: %s</font></th></tr>" % (key, data["data"][key])
+                    output += "<tr><th><font size='1'>%s: %s</font></th></tr>" % (key, data["data"][key])
         output += "</table>"
         self.info.value =  '%s' % output
     
@@ -400,7 +563,7 @@ class alerce_tns(Alerce):
         SDSS_DR16_url = 'http://skyserver.sdss.org/dr16/SkyServerWS'
         sdss_query = '?cmd=select top 1 p.objid, s.z, s.zerr, s.class, s.zwarning from photoobj as p join specobj as s on s.bestobjid = p.objid where p.objid=%s&format=csv' % objid
         url = '%s/SearchTools/SqlSearch%s' % (SDSS_DR16_url, sdss_query)
-        print(url)
+        #print(url)
         r = requests.get(url = url, timeout=(5, 10))
         df = pd.read_csv(BytesIO(r.content), comment="#")
 
@@ -423,7 +586,7 @@ class alerce_tns(Alerce):
         SDSS_DR16_url = 'http://skyserver.sdss.org/dr16/SkyServerWS'
         sdss_query = '?cmd=select top 1 objid, z, zerr, photoerrorclass from photoz where objid=%s&format=csv' % objid
         url = '%s/SearchTools/SqlSearch%s' % (SDSS_DR16_url, sdss_query)
-        print(url)
+        #print(url)
         r = requests.get(url = url, timeout=(2, 5))
         df = pd.read_csv(BytesIO(r.content), comment="#")
         
