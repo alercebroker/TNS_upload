@@ -95,6 +95,8 @@ class alerce_tns(Alerce):
                         coordinates.SkyCoord(float(table_cand["RA"]) * u.deg, float(table_cand["DEC"]) * u.deg, frame='icrs')).arcsecond
                     hostdata["candidate_host_offset_bestguess"] = coordinates.SkyCoord(hostdata["candidate_host_ra"] * u.deg, hostdata["candidate_host_dec"] * u.deg, frame='icrs').separation(
                         coordinates.SkyCoord(float(table_bestguess['ra']) * u.deg, float(table_bestguess["dec"]) * u.deg, frame='icrs')).arcsecond
+                    hostdata["candidate_bestguess_offset"] = coordinates.SkyCoord(float(table_cand["RA"]) * u.deg, float(table_cand["DEC"]) * u.deg, frame='icrs').separation(
+                        coordinates.SkyCoord(float(table_bestguess['ra']) * u.deg, float(table_bestguess["dec"]) * u.deg, frame='icrs')).arcsecond
                 else:
                     hostdata["candidate_host_offset"] = "NULL"
 
@@ -103,12 +105,13 @@ class alerce_tns(Alerce):
                                hostdata["candidate_host_dec"],
                                hostdata["candidate_host_offset"],
                                hostdata["candidate_host_offset_bestguess"],
+                               hostdata["candidate_bestguess_offset"],
                                hostdata["candidate_host_source"],
                                hostdata["candidate_host_redshift_spec"],
                                hostdata["candidate_host_redshift"],
                                hostdata["candidate_host_redshift_error"],
                                hostdata["candidate_host_redshift_type"]]],
-                            columns = ["host_name", "host_ra", "host_dec", "host_offset", "host_offset_bestguess", "host_source",
+                            columns = ["host_name", "host_ra", "host_dec", "host_offset", "host_offset_bestguess", "bestguess_offset", "host_source",
                                         "host_redshift_spec", "host_redshift", "host_redshift_error", "host_redshift_type"],
                              index = [str(table_cand["ZTF_oid"][0])]))
 
@@ -117,28 +120,41 @@ class alerce_tns(Alerce):
         newdf.index.name = "oid"
 
         # otherwise, the closest
-        min_offset = newdf.iloc[0].host_offset_bestguess
-        nmin_offset = 10
+        min_bestguess_offset = newdf.iloc[0].host_offset_bestguess
+        min_host_offset = newdf.iloc[0].host_offset
+        bestguess_offset = newdf.iloc[0].bestguess_offset
+        nmin_offset = 4
         # spectroscopic redshifts with error
         mask_specz_err = newdf.host_redshift_spec & (newdf.host_redshift_error > 0)
         if mask_specz_err.sum() > 0:
-            min_offset_specz_err = newdf.loc[mask_specz_err].iloc[0].host_offset_bestguess
-            if min_offset_specz_err < nmin_offset * max(1, min_offset):
+            min_bestguess_offset_specz_err = newdf.loc[mask_specz_err].iloc[0].host_offset_bestguess
+            min_offset_specz_err = newdf.loc[mask_specz_err].iloc[0].host_offset
+            # the distance from the predicted position and from the candidate cannot be nmin_offset times the minimum distance from the predicted position and the candidate, respectively
+            if (min_bestguess_offset_specz_err < nmin_offset * max(1, min_bestguess_offset)) and (min_offset_specz_err < nmin_offset * max(1, bestguess_offset)):
                 return newdf.loc[mask_specz_err].iloc[0]
         # spectroscopic redshifts
         mask_specz = newdf.host_redshift_spec
         if mask_specz.sum() > 0:
-            min_offset_specz = newdf.loc[mask_specz].iloc[0].host_offset_bestguess
-            if min_offset_specz < nmin_offset * max(1, min_offset):
+            min_bestguess_offset_specz = newdf.loc[mask_specz].iloc[0].host_offset_bestguess
+            min_offset_specz = newdf.loc[mask_specz].iloc[0].host_offset
+            if (min_bestguess_offset_specz < nmin_offset * max(1, min_bestguess_offset)) and (min_offset_specz < nmin_offset * max(1, bestguess_offset)):
                 return newdf.loc[mask_specz].iloc[0]
         # photometric redshifts
         mask_photoz = newdf.host_redshift_type == "photoz"
         if mask_photoz.sum() > 0:
-            min_offset_photoz = newdf.loc[mask_photoz].iloc[0].host_offset_bestguess
-            if min_offset_photoz < nmin_offset * max(1, min_offset):
+            min_bestguess_offset_photoz = newdf.loc[mask_photoz].iloc[0].host_offset_bestguess
+            min_offset_photoz = newdf.loc[mask_photoz].iloc[0].host_offset
+            if (min_bestguess_offset_photoz < nmin_offset * max(1, min_bestguess_offset)) and (min_offset_photoz < nmin_offset * max(1, bestguess_offset)):
                 return newdf.loc[mask_photoz].iloc[0]
-        # return closest to best guess 
-        return newdf.iloc[0]
+        # if no redshift with previus conditions, check if nearest source if close enough to candidate
+        if min_host_offset < nmin_offset * max(1, bestguess_offset):
+            return newdf.iloc[0]
+        else:
+            print("WARNING: closest crossmatch is too far from the predicted position. No catalog crossmatches found.")
+            display(newdf.fillna("NULL"))
+            aux = pd.DataFrame(newdf.iloc[0])
+            aux.loc[:] = np.nan
+            return aux
         
     def view_object(self, oid, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False):
         'display an object in aladin, query different catalogs and show their information when hovering with the mouse'
@@ -187,21 +203,22 @@ class alerce_tns(Alerce):
                     xmatches["SDSSDR16"] = table_SDSSDR16
                     xmatches["SDSSDR16"]["cat_name"] = Column(["SDSSDR16"], name="cat_name")
             best = self.find_bestguess_host(table_cand, table_delight, xmatches)
+
             best = pd.DataFrame(best).transpose()
             best.index.name = "oid"
-
             display(best)
-            table_best = Table()
-            for i in best:
-                if i in ["host_ra", "host_dec"]:
-                    table_best[i[5:]] = float(best[i]) * u.degree
-                else:
-                    table_best[i] = [str(best[i].values)]
-            table_best["cat_name"] = "bestguess"
+
+            if best.dropna(subset=['host_ra']).shape[0] > 0:
+
+                table_best = Table()
+                for i in best:
+                    if i in ["host_ra", "host_dec"]:
+                        table_best[i[5:]] = float(best[i]) * u.degree
+                    else:
+                        table_best[i] = [str(best[i].values)]
+                table_best["cat_name"] = "bestguess"
             
-            #with warnings.catch_warnings():
-            #    warnings.simplefilter('ignore')
-            self.aladin.add_table(table_best)
+                self.aladin.add_table(table_best)
 
             self.candidate_hosts = pd.concat([best, self.candidate_hosts])
 
@@ -220,6 +237,7 @@ class alerce_tns(Alerce):
                 self.candidate_hosts.replace(-99, "NULL", inplace=True)
                 self.candidate_hosts.replace(-999, "NULL", inplace=True)
                 self.candidate_hosts.replace(-9999, "NULL", inplace=True)
+                self.candidate_hosts.fillna("NULL", inplace=True)
                 self.candidate_hosts.reset_index(inplace=True)
                 self.candidate_hosts.drop_duplicates(inplace=True)
                 self.candidate_hosts.set_index("oid", inplace=True)
