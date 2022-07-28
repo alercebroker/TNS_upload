@@ -45,11 +45,11 @@ customSimbad.add_votable_fields('rv_value')
 customSimbad.add_votable_fields('rvz_type')
 customSimbad.add_votable_fields('rvz_error')
 customSimbad.add_votable_fields('rvz_qual')
-customSimbad.TIMEOUT = 5 # 5 seconds
+customSimbad.TIMEOUT = 10 # 5 seconds
 
 # timeout for Ned
 customNed = Ned()
-customNed.TIMEOUT = 5
+customNed.TIMEOUT = 10
 
 class alerce_tns(Alerce):
     'module to interact with alerce api to send TNS report'
@@ -159,6 +159,7 @@ class alerce_tns(Alerce):
     def view_object(self, oid, ned=True, simbad=True, SDSSDR16=True, catsHTM=True, vizier=False):
         'display an object in aladin, query different catalogs and show their information when hovering with the mouse'
 
+        time.sleep(3)
         # start aladin widget
         self.start_aladin()
 
@@ -239,7 +240,7 @@ class alerce_tns(Alerce):
                 self.candidate_hosts.replace(-9999, "NULL", inplace=True)
                 self.candidate_hosts.fillna("NULL", inplace=True)
                 self.candidate_hosts.reset_index(inplace=True)
-                self.candidate_hosts.drop_duplicates(inplace=True)
+                #self.candidate_hosts.drop_duplicates(inplace=True)
                 self.candidate_hosts.set_index("oid", inplace=True)
                 hostfile = "hosts/%s_hosts.csv" % self.refstring
                 print("Saving hosts to %s" % hostfile)
