@@ -45,11 +45,11 @@ customSimbad.add_votable_fields('rv_value')
 customSimbad.add_votable_fields('rvz_type')
 customSimbad.add_votable_fields('rvz_error')
 customSimbad.add_votable_fields('rvz_qual')
-customSimbad.TIMEOUT = 10 # 5 seconds
+customSimbad.TIMEOUT = 20 # 5 seconds
 
 # timeout for Ned
 customNed = Ned()
-customNed.TIMEOUT = 10
+customNed.TIMEOUT = 20
 
 class alerce_tns(Alerce):
     'module to interact with alerce api to send TNS report'
@@ -87,6 +87,8 @@ class alerce_tns(Alerce):
     def find_bestguess_host(self, table_cand, table_bestguess, xmatches):
 
         newdf = []
+        columns = ["host_name", "host_ra", "host_dec", "host_offset", "host_offset_bestguess", "bestguess_offset", "host_source",
+                                        "host_redshift_spec", "host_redshift", "host_redshift_error", "host_redshift_type"]
         for key in xmatches.keys():
             for i in xmatches[key]:
                 hostdata = self.process_data(i)
@@ -99,7 +101,7 @@ class alerce_tns(Alerce):
                         coordinates.SkyCoord(float(table_bestguess['ra']) * u.deg, float(table_bestguess["dec"]) * u.deg, frame='icrs')).arcsecond
                 else:
                     hostdata["candidate_host_offset"] = "NULL"
-
+                    
                 newdf.append(pd.DataFrame([[hostdata["candidate_host_name"],
                                hostdata["candidate_host_ra"],
                                hostdata["candidate_host_dec"],
@@ -111,11 +113,13 @@ class alerce_tns(Alerce):
                                hostdata["candidate_host_redshift"],
                                hostdata["candidate_host_redshift_error"],
                                hostdata["candidate_host_redshift_type"]]],
-                            columns = ["host_name", "host_ra", "host_dec", "host_offset", "host_offset_bestguess", "bestguess_offset", "host_source",
-                                        "host_redshift_spec", "host_redshift", "host_redshift_error", "host_redshift_type"],
-                             index = [str(table_cand["ZTF_oid"][0])]))
+                                          columns = columns,
+                                          index = [str(table_cand["ZTF_oid"][0])]))
 
-        newdf = pd.concat(newdf).sort_values("host_offset_bestguess")
+        if newdf != []:
+            newdf = pd.concat(newdf).sort_values("host_offset_bestguess")
+        else:
+            newdf = pd.DataFrame([], columns=columns, index = [str(table_cand["ZTF_oid"][0])])
         newdf.replace(["NULL", "nan", -99, -999, -9999], np.nan, inplace=True)
         newdf.index.name = "oid"
 
