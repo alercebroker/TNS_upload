@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22aaynpda,MCG-01-54-018,321.7410441666666,-7.021515277777778,35.32595613611331,2.3561684043396185,33.252092380777334,Simbad,True,0.02467,9.000000136438757e-05,C

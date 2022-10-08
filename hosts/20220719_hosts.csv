@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22aaufzow,CGCG 072-053,200.32793,12.21297,6.393620535462931,NED,True,0.061233,NULL,SPEC

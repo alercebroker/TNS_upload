@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22abijxly,KUG 2345+020,357.07542,2.34228,3.9799970710132806,0.49528971402922056,3.9095289620911258,NED,True,0.029751,NULL,

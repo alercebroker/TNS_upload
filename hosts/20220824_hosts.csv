@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22abcsgeq,Mrk 1184,41.478674999999996,-5.640383333333332,5.9352121409511875,0.9551706784198593,5.589330448130764,Simbad,True,0.029367,6.70000008540228e-05,D

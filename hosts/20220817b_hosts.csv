@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22abaucrh,NGC 7427,344.29134,8.50558,1.807851706730248,0.6415788131117844,1.4949362364874956,NED,True,0.032376,NULL,
