@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22abdvqqn,UGC 03962,115.12342,13.87175,18.952417115425376,0.8355250107045524,18.116918228519545,NED,True,0.02907,NULL,

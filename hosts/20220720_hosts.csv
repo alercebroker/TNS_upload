@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22aausixa,MCG -02-60-012,355.46932,-8.64819,8.176302728645995,NED,True,0.034304,NULL,

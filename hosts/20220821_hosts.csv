@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22abbecow,IC 1237,254.06688,55.02647,27.582030168716024,1.5322263723353748,26.474541245382316,NED,True,0.028666,NULL,
