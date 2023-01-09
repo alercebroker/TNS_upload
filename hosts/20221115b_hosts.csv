@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF22abtztxv,ESO 563- G 035,134.27675,-20.03262,4.290641989685135,0.120915490577614,4.232303664999563,NED,True,0.018556,NULL,
