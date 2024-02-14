@@ -18,10 +18,12 @@ import requests
 sys.path.append("lib")
 from alerce_tns import *
 
+# read the input date
 date = re.findall(".*(\d\d\d\d\d\d\d\d)", sys.argv[1])[0]
 print(f"Date: {date}")
 
-# access the database
+
+# open the alerce database
 credentials_file = "../usecases/alercereaduser_v4.json"
 with open(credentials_file) as jsonfile:
     params = json.load(jsonfile)["params"]
@@ -29,23 +31,23 @@ print("Opening connection to database...")
 conn = psycopg2.connect(dbname=params['dbname'], user=params['user'], host=params['host'], password=params['password'])
 print("Ready.")
 
-#try:
-#    # old database
-#    credentials_file = "../../usecases/alercereaduser_v2.json"
-#    with open(credentials_file) as jsonfile:
-#        params = json.load(jsonfile)["params"]
-#    conn_old = psycopg2.connect(dbname=params['dbname'], user=params['user'], host=params['host'], password=params['password'])
-#except:
-#    print("Cannot read old database")
 
-# open the alerce client
+# initialize the alerce client
 client = alerce_tns()
-print("Getting API key...")
+
+# open the TNS API key
+print("Getting TNS API key...")
 api_key = open("API.key", "r").read()
 
+
+# function to read ZTF data release information from the alerce database
 def get_DR(oid, url="https://api.alerce.online/ztf/dr/v1/light_curve/"):
-    stats = client.query_object(oid, format='pandas')
-    
+    try:
+        stats = client.query_object(oid, format='pandas')
+    except:
+        time.sleep(1)
+        stats = client.query_object(oid, format='pandas')
+        
     ra = float(stats.meanra)
     dec = float(stats.meandec)
     query = {'ra':ra, 'dec':dec, 'radius':1.5}
@@ -66,6 +68,7 @@ def get_DR(oid, url="https://api.alerce.online/ztf/dr/v1/light_curve/"):
     else:
         return None
 
+# function to read ZTF data release information from IPAC (recommended)
 def get_ZTF_DR_full(IDs, url="https://irsa.ipac.caltech.edu/cgi-bin/ZTF/nph_light_curves?"):
     
     for idx, ID in enumerate(IDs):
@@ -82,31 +85,38 @@ def get_ZTF_DR_full(IDs, url="https://irsa.ipac.caltech.edu/cgi-bin/ZTF/nph_ligh
     
     return output
 
+
+# function to get the quantile
 def quantile(xs, x):
     for idx, i in enumerate(np.sort(xs)):
         if x < i:
             return (idx / xs.shape[0])
     return 1.
 
-ignore_index = []
-mindet = {}
-quants = {}
-quantsfull = {}
-quantsfullpos = {}
-bands = {1: "g", 2: "r"}
-filtercodes = {1: "zg", 2: "zr"}
 
+# process a given candidate
 def alerce_reported(oid):
 
+    # 1 s sleep to avoid API problems
     time.sleep(1)
 
     # get object coordinates
-    stats = client.query_object(oid, format='pandas')
+    try:
+        stats = client.query_object(oid, format='pandas')
+    except:
+        time.sleep(1)
+        stats = client.query_object(oid, format='pandas')
+
     ra = float(stats.meanra)
     dec = float(stats.meandec)
 
     # get candidate detections
-    detections = client.query_detections(oid, format='pandas')
+    try:
+        detections = client.query_detections(oid, format='pandas')
+    except:
+        time.sleep(1)
+        detections = client.query_detections(oid, format='pandas')
+        
     for fid in detections.fid.unique():
         if "magpsf_corr" not in detections.loc[detections.fid == fid]:
             continue
@@ -158,11 +168,20 @@ def alerce_reported(oid):
         DRfull = None
 
     # get TNS information
-    tns = client.get_tns(api_key, oid)
+    try:
+        tns = client.get_tns(api_key, oid)
+    except:
+        time.sleep(1)
+        tns = client.get_tns(api_key, oid)
 
     if tns:
         print("Astronomical transient is known:", tns)
-        info = client.get_tns_reporting_info(api_key, oid)
+        try:
+            info = client.get_tns_reporting_info(api_key, oid)
+        except:
+            time.sleep(1)
+            info = client.get_tns_reporting_info(api_key, oid)
+            
         print("Reporting info:", info)
         if "ALeRCE" in info["reporter"]:
             print("Ignoring %s" % oid)
@@ -173,44 +192,66 @@ def alerce_reported(oid):
 
     print("\n")
 
-# read df
-print("Reading input data frame")
+
+# ------------------------
+
+ignore_index = []
+mindet = {}
+quants = {}
+quantsfull = {}
+quantsfullpos = {}
+bands = {1: "g", 2: "r"}
+filtercodes = {1: "zg", 2: "zr"}
+
+    
+# read oids -------------------
+print("\n\mReading candidate oids")
 df = pd.read_csv(sys.argv[1])
 df.set_index("object", inplace=True)
 print(df.head())
 print(df.shape)
 
+# remove old objects -------------
+print("\n\nRemoving old reports")
 # compute time difference wrt first report and last detection
-print("Removing old reports")
 now = Time.now()
 df["now"] = df.apply(lambda row: Time.now().isot.replace(" ", "T")+"Z", axis=1).apply(pd.to_datetime)
 
+# for testing purposes
 check_previous_date = False
-# for checking previous date
+# checking previous date
 if check_previous_date:
   offset = -24.*22 # check according to date requested
   from datetime import date, datetime, timedelta
-  df['now'] = df['now']+timedelta(hours=offset)
-  #print(df['now'])
+  df['now'] = df['now'] + timedelta(hours=offset)
 
-df["first_detection_time"] =  df["first_detection"]+'Z'
+# fill columns in the dataframe
+df["first_detection_time"] =  df["first_detection"] + 'Z'
 df["first_detection_time"] =  df.first_detection_time.apply(pd.to_datetime)
-#df["first_detection_time"] =  df.first_detection.apply(pd.to_datetime)
 df["delta_hours_first_detection"] = (df.first_detection_time - df.now).apply(lambda x: x.total_seconds()/3600)
-
 df["last_date_time"] = df.last_date.apply(pd.to_datetime)
+df["last_detection_time"] = df.last_detection.apply(lambda time: pd.to_datetime(f"{time}Z"))
 df["delta_hours_last_date"] = (df.last_date_time - df.now).apply(lambda x: x.total_seconds()/3600)
-# select only reports during the last 20 hours
-df = df.loc[df.delta_hours_last_date > -20]
-print(df.loc[df.delta_hours_last_date <= -20].index)
+df["delta_hours_last_detection"] = (df.last_detection_time - df.now).apply(lambda x: x.total_seconds()/3600)
+
+# select only objects with *reports* during the last 20 hours
+deltamax = 20 # 20 hours
+df = df.loc[df.delta_hours_last_date > -deltamax]
+print(df.loc[df.delta_hours_last_date <= -deltamax].index)
 print(df.shape)
 
+# select only objects with *detections* within the last 48 hours
+df = df.loc[df.delta_hours_last_detection > -48]
+print(df.shape)
+
+# continue if any objects left
 if df.shape[0] > 0:
+    
     # sort by first detection (most recent first)
     df.sort_values(by=['first_detection_time'], ascending=False, inplace=True)
     
-    # query ss_ztf
-    print("Querying and removing known solar system objects")
+    # query known solar system objects in ss_ztf
+    print("\n\nQuerying and removing known solar system objects")
     print(df.index)
     query='''
     SELECT oid, ssdistnr
@@ -228,13 +269,13 @@ if df.shape[0] > 0:
         print(ignore_index)
         print(df.shape)
     else:
-        print("No known asteroids among the candidates")
+        print("\n\nNo known asteroids among the candidates")
 else:
-    print("No new reports in the last 20 hr")
+    print(f"\n\nNo new reports in the last {deltamax} hr")
     sys.exit()
 
 # query stamp classifier probabilities in new database
-print("Querying new classifier probabilities")
+print("\n\nQuerying classifier probabilities")
 query='''
 SELECT 
 oid, probability, classifier_version
@@ -247,35 +288,36 @@ class_name = 'SN'
 AND
 oid in (%s)
 ''' % ",".join(["'%s'" % oid for oid in df.index])
-pp_new = pd.read_sql_query(query, conn)
-pp_new.set_index("oid", inplace=True)
-pp_new = pp_new[~pp_new.index.duplicated(keep='first')]
-print("new probs", pp_new.shape)
+pp = pd.read_sql_query(query, conn)
+pp.set_index("oid", inplace=True)
+pp = pp[~pp.index.duplicated(keep='first')]
+print("probs", pp.shape)
 
 print("Comparing probabilities")
 probs_comp = []
 def probstr(oid):
     probs = ""
-    if oid in pp_new.index:
-        probs += "P_new: %.3f" % pp_new.loc[oid].probability
+    if oid in pp.index:
+        probs += "Prob: %.3f" % pp.loc[oid].probability
     return probs
 
 # check candidates to ignore and clean the data frame
-print("Querying TNS and ignoring SNe with ZTF names")
+print("\n\nQuerying TNS and ignoring SNe with ZTF names")
 nunique = len(df.index.unique())
 for idx, i in enumerate(df.index.unique()):
     print(nunique - idx, i, probstr(i))
+    # this is the main function to be called
     alerce_reported(i)
 print("objects ignored:", ignore_index)
 df = df.loc[~df.index.isin(ignore_index)]
 print(df.shape)
     
 # Select candidates with first detections in the last 20 hours
-masknew = df.delta_hours_first_detection > -20
+masknew = df.delta_hours_first_detection > -deltamax
 dfnew = df.loc[masknew]
 
 # count
-print("Checking missed candidates by the two classifiers")
+print("\n\nChecking missed candidates by the two classifiers")
 mask_new = dfnew.source == "SN Hunter 1.1-dev"
 mask_old = dfnew.source == "SN Hunter"
 both = dfnew.loc[mask_new].index[dfnew.loc[mask_new].index.isin(dfnew.loc[mask_old].index)]
@@ -285,11 +327,13 @@ newcand = np.array(df.loc[masknew].index.unique())
 oldcand = np.array(df.loc[~masknew].index.unique())
 print(newcand)
 print(oldcand)
-print("\nCandidates with first detections in the last 20 hours:")
+
+# loop among all new candidates
+print("\n\nCheck all candidates:\n\n")
+
 nchunk=1000
-
 status = {}
-
+print(f"\nCandidates with first detections in the last {deltamax} hours:")
 if len(newcand) > 0:
     for idx, i in enumerate(newcand):
         print(idx, probstr(i), "https://alerce.online/object/%s" % i)
@@ -323,6 +367,7 @@ if len(oldcand) > 0:
     for idx, i in enumerate(oldcand):
         flag = False
         if i in quantsfull.keys():
+            status[i] = ""
             for filterid in quantsfull[i].keys():
                 status[i] = ""
                 if not flag and quantsfull[i][filterid] > 0:
@@ -371,14 +416,14 @@ if len(oldcand) > 0:
 #plt.savefig("Comparison_%s.png" % sys.argv[1])
 
 
-
 # check already rejected candidates
 print("\nReading previously rejected candidates...")
-xls = pd.ExcelFile("https://docs.google.com/spreadsheets/d/e/2PACX-1vRFQaTkgXJUuwH7bcEsw6Q7QyraGzPc30-SprB2VymkDRElDMDAoRRj30BjGKtZAQs0NTiE1tJPMIT3/pub?output=xlsx")
+#xls = pd.ExcelFile("https://docs.google.com/spreadsheets/d/e/2PACX-1vRFQaTkgXJUuwH7bcEsw6Q7QyraGzPc30-SprB2VymkDRElDMDAoRRj30BjGKtZAQs0NTiE1tJPMIT3/pub?output=xlsx")
+xls = pd.ExcelFile("https://docs.google.com/spreadsheets/d/e/2PACX-1vSNxNp5PeK--gvBmpe78MxAmZmriF1VQrA7ibjL7ijeiKxnJsFQNDJuAvCxmd0tLa5B6igv0EYSxCrW/pub?output=xlsx")
 
 def checkrow(row):
-    status = [name[:2] for name in list(row.dropna())]
-    if "DR" in status:
+    st = [name[:2] for name in list(row.dropna())]
+    if "DR" in st:
         return(row.name)
 
 
@@ -388,7 +433,7 @@ passed = {}
 for tab in xls.sheet_names:
     if tab == "Satellites":
         continue
-        
+    print(tab)
     dfs[tab] = xls.parse(tab)
     dfs[tab].columns = dfs[tab].iloc[0].values
     dfs[tab].drop(0, inplace=True)
@@ -429,5 +474,9 @@ output = open(f"candidates/drive/{date}.csv", "w")
 output.write(',"If bad candidate, annotate with CR (cosmic ray), SH (shape), BD (bad difference), DR (consistent with DR), SAT (satellite), HL (hostless), ID (likely star, AGN, etc. based on images, catalog ID)"\n')
 output.write("oid,AM,FB,FF,GP,pipeline\n")
 for key, val in status.items():
+    print(key, val)
     output.write(f"{key},,,,,{val}\n")
 output.close()
+
+
+print("\n\n\n------------------------------------------------\n-------   PLEASE UPLOAD THE CANDIDATES TO DRIVE -----------------\n------- https://docs.google.com/spreadsheets/d/1YfZ0M5NhZIjiARPgDeb1UhtiljduT35spvX2T6sTKwE/edit?usp=sharing;  ---------\n\n--------------------------------------------------\n\n\n")
