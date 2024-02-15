@@ -74,7 +74,38 @@ class alerce_tns(Alerce):
 
         self.bestguess = None
 
-    def start_aladin(self, survey="P/PanSTARRS/DR1/color-z-zg-g", layout_width=70, fov=0.025):
+    def query_objects(self, *args, **kwargs):
+
+        try:
+            result = super().query_objects(*args, **kwargs)
+        except:
+            time.sleep(1)
+            result = super().query_objects(*args, **kwargs)
+
+        return result
+
+    def query_detections(self, *args, **kwargs):
+
+        try:
+            result = super().query_detections(*args, **kwargs)
+        except:
+            time.sleep(1)
+            result = super().query_detections(*args, **kwargs)
+
+        return result
+
+    def query_non_detections(self, *args, **kwargs):
+
+        try:
+            result = super().query_non_detections(*args, **kwargs)
+        except:
+            time.sleep(1)
+            result = super().query_non_detections(*args, **kwargs)
+
+        return result
+
+    #def start_aladin(self, survey="P/PanSTARRS/DR1/color-z-zg-g", layout_width=70, fov=0.025):
+    def start_aladin(self, survey="https://alasky.cds.unistra.fr/Pan-STARRS/DR1/color-z-zg-g/", layout_width=70, fov=0.025):
         'Start a pyaladin window (for jupyter notebooks) together with an information window'
 
         self.aladin = ipyal.Aladin(survey=survey, layout=Layout(width='%s%%' % layout_width), fov=fov)
@@ -193,17 +224,47 @@ class alerce_tns(Alerce):
             # collect all data
             xmatches = {}
             if ned:
-                table_ned = customNed.query_region(cobestguess, radius=0.01 * u.deg)
+                try:
+                    table_ned = customNed.query_region(cobestguess, radius=0.01 * u.deg)
+                except:
+                    print("NED disconnect error, waiting 5 seconds and trying again...")
+                    time.sleep(5) # see https://github.com/astropy/astroquery/issues/1408
+                    try:
+                        table_ned = customNed.query_region(cobestguess, radius=0.01 * u.deg)
+                    except:
+                        table_ned = False
+                        print("---> WARNING: NED timeout")
+                        pass
                 if table_ned:
                     xmatches["NED"] = table_ned
                     xmatches["NED"]["cat_name"] = Column(["NED"], name="cat_name")
             if simbad:
-                table_simbad = customSimbad.query_region(cobestguess, radius=0.01 * u.deg)#, equinox='J2000.0')   
+                try:
+                    table_simbad = customSimbad.query_region(cobestguess, radius=0.01 * u.deg)#, equinox='J2000.0')
+                except:
+                    print("Simbad disconnect error, waiting 5 seconds and trying again...")
+                    time.sleep(5) # see https://github.com/astropy/astroquery/issues/1408
+                    try:
+                        table_simbad = customSimbad.query_region(cobestguess, radius=0.01 * u.deg)#, equinox='J2000.0')
+                    except:
+                        table_simbad = False
+                        print("---> WARNING: Simbad timeout")
+                        pass
                 if table_simbad:
                     xmatches["Simbad"] = table_simbad
                     xmatches["Simbad"]["cat_name"] = Column(["Simbad"], name="cat_name")
             if SDSSDR16:
-                table_SDSSDR16 = self.get_SDSSDR16(float(radelight), float(decdelight), 30.)
+                try:
+                    table_SDSSDR16 = self.get_SDSSDR16(float(radelight), float(decdelight), 30.)
+                except:
+                    print("SDSSDR16 disconnect error, waiting 5 seconds and trying again...")
+                    time.sleep(5) # see https://github.com/astropy/astroquery/issues/1408
+                    try:
+                        table_SDSSDR16 = self.get_SDSSDR16(float(radelight), float(decdelight), 30.)
+                    except:
+                        table_SDSSDR16 = False
+                        print("---> WARNING: SDSSDR16 timeout")
+                        pass
                 if table_SDSSDR16:
                     xmatches["SDSSDR16"] = table_SDSSDR16
                     xmatches["SDSSDR16"]["cat_name"] = Column(["SDSSDR16"], name="cat_name")
@@ -239,6 +300,7 @@ class alerce_tns(Alerce):
                 self.info.value =  "<div><font size='5'>All candidates revised</font></div>"
                 print("\n\nSummary of host galaxies:")
                 self.candidate_hosts.replace("nan", "NULL", inplace=True)
+                self.candidate_hosts.replace("--", "NULL", inplace=True)
                 self.candidate_hosts.replace(-99, "NULL", inplace=True)
                 self.candidate_hosts.replace(-999, "NULL", inplace=True)
                 self.candidate_hosts.replace(-9999, "NULL", inplace=True)
@@ -571,6 +633,7 @@ class alerce_tns(Alerce):
         SDSS_DR16_url = "http://skyserver.sdss.org/dr16/SkyServerWS"
         r = requests.get(url = "%s/ConeSearch/ConeSearchService" % SDSS_DR16_url, params = params, timeout=(2, 5))
         df = pd.read_csv(BytesIO(r.content), comment="#")
+        #display(df) #DEBUG
         df["objid"] = df["objid"].astype(str)
         mask = df.type == "GALAXY"
         if mask.sum() == 0:
@@ -625,14 +688,22 @@ class alerce_tns(Alerce):
         'get galaxy redshift from SDSS DR16 using their explorer webpage (this should be changed to using their API or querying their database directly'
 
         results = {}
-        photz = self.get_SDSSDR16_redshift_phot(objid, mode='pandas')
-        specz = self.get_SDSSDR16_redshift_spec(objid, mode='pandas')
+        try:
+            photz = self.get_SDSSDR16_redshift_phot(objid, mode='pandas')
+        except:
+            photz = None
+        try:
+            specz = self.get_SDSSDR16_redshift_spec(objid, mode='pandas')
+        except:
+            specz = None
         if not photz is None:
-            results["photoz"] = float(photz.z)
-            results["photoz_err"] = float(photz.zerr)
+            if photz.z.shape[0] != 0:
+                results["photoz"] = float(photz.z)
+                results["photoz_err"] = float(photz.zerr)
         if not specz is None:
-            results["specz"] = float(specz.z)
-            results["specz_err"] = float(specz.zerr)
+            if specz.z.shape[0] != 0:
+                results["specz"] = float(specz.z)
+                results["specz_err"] = float(specz.zerr)
         
         return results 
 
