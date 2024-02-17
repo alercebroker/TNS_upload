@@ -11,7 +11,6 @@ from astropy.coordinates import SkyCoord
 
 import psycopg2
 import json
-import json
 import time
 import requests
 
@@ -24,9 +23,8 @@ print(f"Date: {date}")
 
 
 # open the alerce database
-credentials_file = "../usecases/alercereaduser_v4.json"
-with open(credentials_file) as jsonfile:
-    params = json.load(jsonfile)["params"]
+url = "https://raw.githubusercontent.com/alercebroker/usecases/master/alercereaduser_v4.json"
+params = requests.get(url).json()['params']
 print("Opening connection to database...")
 conn = psycopg2.connect(dbname=params['dbname'], user=params['user'], host=params['host'], password=params['password'])
 print("Ready.")
