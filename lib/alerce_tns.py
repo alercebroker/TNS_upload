@@ -104,8 +104,8 @@ class alerce_tns(Alerce):
 
         return result
 
-    #def start_aladin(self, survey="P/PanSTARRS/DR1/color-z-zg-g", layout_width=70, fov=0.025):
-    def start_aladin(self, survey="https://alasky.cds.unistra.fr/Pan-STARRS/DR1/color-z-zg-g/", layout_width=70, fov=0.025):
+    def start_aladin(self, survey="P/PanSTARRS/DR1/color-z-zg-g", layout_width=70, fov=0.025):
+    #def start_aladin(self, survey="https://alasky.cds.unistra.fr/Pan-STARRS/DR1/color-z-zg-g/", layout_width=70, fov=0.025):
         'Start a pyaladin window (for jupyter notebooks) together with an information window'
 
         self.aladin = ipyal.Aladin(survey=survey, layout=Layout(width='%s%%' % layout_width), fov=fov)
