@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF23aacydim,CGCG 120-014,129.54266,25.0988,10.98155540596793,0.38651300724787924,10.605003531040197,NED,True,0.028576,NULL,

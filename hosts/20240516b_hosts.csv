@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF24aanyhva,UGC 05024,141.93925,70.21247,10.016055536151642,0.9658911283527593,10.284118394226416,NED,False,0.038464,NULL,PUN

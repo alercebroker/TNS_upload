@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF24aaovaxw,NVSS J112225+592256,170.6061775,59.38174277777778,2.7371402633894433,3.7171905411407677,5.742758048545705,Simbad,True,0.05128,9.999999747378752e-06,C

@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF23aawipdg,UGC 10825,260.64294583333333,0.9579972222222222,11.241606706677025,3.7022449282515493,14.937855586999277,Simbad,True,0.02934,2.300000051036477e-05,D

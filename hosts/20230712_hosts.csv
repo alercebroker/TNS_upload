@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF23aaqxlpn,ESO 594-12,295.41802916666666,-21.263997222222223,5.092428186196958,1.2896922160308102,5.645461977139682,Simbad,True,0.04791,NULL,D

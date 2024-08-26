@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF23aarzmhc,2MASX J04410201+2506250,70.25846083333333,25.107086944444447,3.421838071595705,0.4495488119328051,3.8169382189769565,Simbad,True,0.01277,NULL,D

@@ -1,0 +1,3 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF23aanavut,WISEA J122156.11-051559.9,185.48359,-5.26667,1.0075140623846306,1.0094048777270153,0.0638363346600673,NED,False,NULL,NULL,NULL
+ZTF23aamxpis,SDSS J145932.08+373759.7,224.883661376284,37.6332721896732,4.109506773924689,0.32799897814984674,4.243106327232102,SDSSDR16,False,0.139696,0.017659,photoz

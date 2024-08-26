@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF23abrylmb,NGC  7610,349.92244624999995,10.185000833333334,40.86931314138586,2.5965839258928995,43.174639746669534,Simbad,True,0.011919,1.0006938143779687e-05,C

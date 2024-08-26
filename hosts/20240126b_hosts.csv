@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF24aadkwol,IC  609,156.39764999999997,-2.2152458333333334,26.586704294895387,1.1476549315968585,27.49742870678546,Simbad,True,0.018536,7.300000288523734e-05,D

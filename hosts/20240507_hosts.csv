@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF24aamlalc,NGC  5876,227.3815608333333,54.50649194444444,6.578811033614403,0.7662781146772195,5.820265790028606,Simbad,True,0.01085,9.999999747378752e-06,C
