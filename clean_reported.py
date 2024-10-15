@@ -114,8 +114,11 @@ def alerce_reported(oid):
     except:
         time.sleep(1)
         detections = client.query_detections(oid, format='pandas')
-        
+
+    print(detections)
     for fid in detections.fid.unique():
+        if fid == 3:
+            continue
         if "magpsf_corr" not in detections.loc[detections.fid == fid]:
             continue
         if detections.loc[detections.fid == fid].magpsf_corr.dropna().shape[0] == 0:
@@ -143,6 +146,8 @@ def alerce_reported(oid):
 
         # check magnitude quantiles
         for filterid in DR.filterid.unique():
+            if filterid == 3:
+                continue
             if oid in mindet.keys():
                 if filterid in mindet[oid].keys() and filterid in DR.filterid.unique():
                     quants[oid][filterid] = quantile(DR[DR.filterid == filterid].mag, mindet[oid][filterid])
@@ -153,6 +158,8 @@ def alerce_reported(oid):
                     
         # check distance quantiles
         for filterid in quantsfull[oid].keys():
+            if filterid == 3:
+                continue
             mask = DRfull.filtercode == filtercodes[filterid]
             ras = DRfull.loc[mask].ra
             decs = DRfull.loc[mask].dec
@@ -219,7 +226,7 @@ df["now"] = df.apply(lambda row: Time.now().isot.replace(" ", "T")+"Z", axis=1).
 check_previous_date = False
 # checking previous date
 if check_previous_date:
-  offset = -24.*22 # check according to date requested
+  offset = -32 # check according to date requested
   from datetime import date, datetime, timedelta
   df['now'] = df['now'] + timedelta(hours=offset)
 
@@ -341,6 +348,8 @@ if len(newcand) > 0:
         if i in quantsfull.keys():
             status[i] = ""
             for filterid in quantsfull[i].keys():
+                if filterid == 3:
+                    continue
                 if not flag and quantsfull[i][filterid] > 0:
                     flag = True
                 if flag:
@@ -367,6 +376,8 @@ if len(oldcand) > 0:
         if i in quantsfull.keys():
             status[i] = ""
             for filterid in quantsfull[i].keys():
+                if filterid == 3:
+                    continue
                 status[i] = ""
                 if not flag and quantsfull[i][filterid] > 0:
                     flag = True
