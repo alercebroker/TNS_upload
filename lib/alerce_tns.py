@@ -1004,9 +1004,9 @@ class alerce_tns(Alerce):
         search_obj=OrderedDict(search_obj)
         search_data=[('api_key',(None, api_key)), ('data',(None,json.dumps(search_obj)))]
         try:
-            response=requests.post(search_url, headers=self.tns_headers, files=search_data, timeout=(5, 10))
+            response=requests.post(search_url, headers=self.tns_headers, data=search_data, timeout=(5, 10))
             self.rate_limit_handling(response)
-            reply = response.json()["data"]["reply"]
+            reply = response.json()["data"]
             if reply != []:
                 return reply
             else:
@@ -1037,13 +1037,13 @@ class alerce_tns(Alerce):
             response = requests.post(json_url, headers=self.tns_headers, files = json_data)
             self.rate_limit_handling(response)
             
-            group_name = response.json()['data']['reply']['discovery_data_source']['group_name']
+            group_name = response.json()['data']['discovery_data_source']['group_name']
             discoverers.append(group_name)
-            reporter = response.json()['data']['reply']['reporting_group']['group_name']
+            reporter = response.json()['data']['reporting_group']['group_name']
             reporters.append(reporter)
-            internal_names = response.json()['data']['reply']['internal_names']
+            internal_names = response.json()['data']['internal_names']
             try:
-                internal_names = internal_names.split(", ")
+                internal_names = internal_names.split(",")
                 all_internal_names += internal_names
             except:
                 True
