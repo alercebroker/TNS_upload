@@ -5,6 +5,7 @@ from astropy.time import Time
 import matplotlib.pyplot as plt
 from io import BytesIO
 import re
+from datetime import datetime, timezone
 
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -29,7 +30,6 @@ print("Opening connection to database...")
 conn = psycopg2.connect(dbname=params['dbname'], user=params['user'], host=params['host'], password=params['password'])
 print("Ready.")
 
-
 # initialize the alerce client
 client = alerce_tns()
 
@@ -37,7 +37,54 @@ client = alerce_tns()
 print("Getting TNS API key...")
 api_key = open("API.key", "r").read()
 
+# get TNS supernova
+def get_TNSDB(clean=True):
 
+    print("Getting latest TNSDB")
+
+    tnsdb = "tnsdb"
+
+    if clean:
+        # create clean copy
+        for file in os.listdir(tnsdb):
+            os.remove(os.path.join(tnsdb, file))
+
+        # get UTC hour
+        current_hour_utc = datetime.now(timezone.utc).hour
+        print(f"Current UTC hour: {current_hour_utc}")
+        
+        # get credentials
+        tns_credentials_file = "tns_credentials.json"
+        with open(tns_credentials_file) as jsonfile:
+            tns_params = json.load(jsonfile)
+            tns_id = tns_params["tns_id"]
+            tns_name = tns_params["tns_name"]
+        
+        # download latest TNS supernova
+        command = f'curl -X POST -H \'user-agent: tns_marker{{"tns_id":{tns_id}, "type": "bot",  "name":"{tns_name}"}}\' -d \'api_key={api_key}\' https://www.wis-tns.org/system/files/tns_public_objects/tns_public_objects.csv.zip > tnsdb/tns_public_objects.csv.zip'
+        print(command)
+        os.system(command)
+        for i in range(current_hour_utc):
+            command = f'curl -X POST -H \'user-agent: tns_marker{{"tns_id":{tns_id}, "type": "bot",  "name":"{tns_name}"}}\' -d \'api_key={api_key}\' https://www.wis-tns.org/system/files/tns_public_objects/tns_public_objects_{i:02d}.csv.zip > tnsdb/tns_public_objects_{i:02d}.csv.zip'
+            print(command)
+            os.system(command)
+
+    # load files
+    tnsdb = "tnsdb"
+    tnsdf = pd.DataFrame()
+    for file in np.sort(os.listdir(tnsdb)):
+        try:
+            aux = pd.read_csv(f"{tnsdb}/{file}", skiprows=[0]).set_index("objid")
+            tnsdf = pd.concat([aux, tnsdf])
+            print(file, tnsdf.shape)
+        except:
+            print(file)
+        tnsdf = tnsdf.drop_duplicates(keep='first')
+        print(tnsdf.shape)
+
+    # return tnsdf
+    return tnsdf, SkyCoord(ra=tnsdf.ra*u.degree, dec=tnsdf.declination*u.degree, frame='icrs')
+        
 # function to read ZTF data release information from the alerce database
 def get_DR(oid, url="https://api.alerce.online/ztf/dr/v1/light_curve/"):
     try:
@@ -83,14 +130,12 @@ def get_ZTF_DR_full(IDs, url="https://irsa.ipac.caltech.edu/cgi-bin/ZTF/nph_ligh
     
     return output
 
-
 # function to get the quantile
 def quantile(xs, x):
     for idx, i in enumerate(np.sort(xs)):
         if x < i:
             return (idx / xs.shape[0])
     return 1.
-
 
 # process a given candidate
 def alerce_reported(oid):
@@ -107,6 +152,53 @@ def alerce_reported(oid):
 
     ra = float(stats.meanra)
     dec = float(stats.meandec)
+
+    # get TNS information using daily csv files. Ignore if already reported, b
+    sep = tnscoords.separation(SkyCoord(ra=ra*u.degree, dec=dec*u.degree, frame='icrs'))
+    idxmin = np.argmin(sep)
+    sepmin = float(sep[idxmin] / u.arcsec)
+    if sepmin < 1.5:
+        print("Object in TNS")
+        if tnsdf.iloc[idxmin].reporting_group in ["ZTF", "ALeRCE"]:
+            print(f"...and reported by {tnsdf.iloc[idxmin].reporting_group}, skipping.")
+            ignore_index.append(oid)
+            return
+        else:
+            print(f"...but not reported by ZTF or ALeRCE (reported by {tnsdf.iloc[idxmin].reporting_group})")
+            try:
+                info = client.get_tns_reporting_info(api_key, oid)
+            except:
+                time.sleep(1)
+                info = client.get_tns_reporting_info(api_key, oid)
+    
+            print("Check whether this object has been reported with the same ZTF name (it includes all reports):", info)
+            if info["internal_names"] is not None:
+                if oid in info["internal_names"]: # reported using ZTF internal name, do not report
+                    print("Object was reported using the same ZTF internal name")
+                    return
+
+    # old version
+    #try:
+    #    tns = client.get_tns(api_key, oid)
+    #except:
+    #    time.sleep(1)
+    #    tns = client.get_tns(api_key, oid)
+    #
+    #if tns:
+    #    print("Astronomical transient is known:", tns)
+    #    try:
+    #        info = client.get_tns_reporting_info(api_key, oid)
+    #    except:
+    #        time.sleep(1)
+    #        info = client.get_tns_reporting_info(api_key, oid)
+    #        
+    #    print("Reporting info:", info)
+    #    if "ALeRCE" in info["reporter"]:
+    #        print("Ignoring %s" % oid)
+    #        ignore_index.append(oid)
+    #    if not info["internal_names"] is None:
+    #        if oid in info["internal_names"]: # reported using ZTF internal name, do not report                                                                                                              
+    #            print("Object was reported using the same ZTF internal name")
 
     # get candidate detections
     try:
@@ -171,29 +263,6 @@ def alerce_reported(oid):
             print(f"    %s ZTF DR full pos. quantile: %f" % (bands[filterid], quantsfullpos[oid][filterid]))
     else:
         DRfull = None
-
-    # get TNS information
-    try:
-        tns = client.get_tns(api_key, oid)
-    except:
-        time.sleep(1)
-        tns = client.get_tns(api_key, oid)
-
-    if tns:
-        print("Astronomical transient is known:", tns)
-        try:
-            info = client.get_tns_reporting_info(api_key, oid)
-        except:
-            time.sleep(1)
-            info = client.get_tns_reporting_info(api_key, oid)
-            
-        print("Reporting info:", info)
-        if "ALeRCE" in info["reporter"]:
-            print("Ignoring %s" % oid)
-            ignore_index.append(oid)
-        if not info["internal_names"] is None:
-            if oid in info["internal_names"]: # reported using ZTF internal name, do not report                                                                                                              
-                print("Object was reported using the same ZTF internal name")
 
     print("\n")
 
@@ -279,6 +348,9 @@ else:
     print(f"\n\nNo new reports in the last {deltamax} hr")
     sys.exit()
 
+# populate TNSDB
+tnsdf, tnscoords = get_TNSDB(clean=False)
+    
 # query stamp classifier probabilities in new database
 print("\n\nQuerying classifier probabilities")
 query='''
@@ -313,6 +385,7 @@ for idx, i in enumerate(df.index.unique()):
     print(nunique - idx, i, probstr(i))
     # this is the main function to be called
     alerce_reported(i)
+    
 print("objects ignored:", ignore_index)
 df = df.loc[~df.index.isin(ignore_index)]
 print(df.shape)
