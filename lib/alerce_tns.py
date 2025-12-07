@@ -16,8 +16,10 @@ from astropy import coordinates
 from astropy.time import Time
 from astropy.table import Table, Column
 
-from astroquery.ned import Ned
+from astroquery.ipac.ned import Ned
+#from astroquery.ned import Ned
 from astroquery.simbad import Simbad
+#from astroquery.simbad import otype_defs
 from astroquery.vizier import Vizier
 
 import ipyaladin as ipyal
@@ -40,8 +42,9 @@ report_photoz_skyportal = False
 
 # add redshift to Simbad query
 customSimbad = Simbad()
-customSimbad.add_votable_fields('z_value')
-customSimbad.add_votable_fields('rv_value')
+customSimbad.add_votable_fields('otype(S)')
+customSimbad.add_votable_fields('rvz_redshift')
+#customSimbad.add_votable_fields('rv_value')
 customSimbad.add_votable_fields('rvz_type')
 customSimbad.add_votable_fields('rvz_error')
 customSimbad.add_votable_fields('rvz_qual')
@@ -168,7 +171,8 @@ class alerce_tns(Alerce):
             if (min_bestguess_offset_specz_err < nmin_offset * max(1, min_bestguess_offset)) and (min_offset_specz_err < nmin_offset * max(1, bestguess_offset)):
                 return newdf.loc[mask_specz_err].iloc[0]
         # spectroscopic redshifts
-        mask_specz = newdf.host_redshift_spec
+        #display(newdf)
+        mask_specz = newdf.host_redshift_spec.fillna(False)
         if mask_specz.sum() > 0:
             min_bestguess_offset_specz = newdf.loc[mask_specz].iloc[0].host_offset_bestguess
             min_offset_specz = newdf.loc[mask_specz].iloc[0].host_offset
@@ -240,12 +244,12 @@ class alerce_tns(Alerce):
                     xmatches["NED"]["cat_name"] = Column(["NED"], name="cat_name")
             if simbad:
                 try:
-                    table_simbad = customSimbad.query_region(cobestguess, radius=0.01 * u.deg)#, equinox='J2000.0')
+                    table_simbad = customSimbad.query_region(cobestguess, radius=0.01 * u.deg, criteria="otype = 'Galaxy..'")#, equinox='J2000.0')
                 except:
                     print("Simbad disconnect error, waiting 5 seconds and trying again...")
                     time.sleep(5) # see https://github.com/astropy/astroquery/issues/1408
                     try:
-                        table_simbad = customSimbad.query_region(cobestguess, radius=0.01 * u.deg)#, equinox='J2000.0')
+                        table_simbad = customSimbad.query_region(cobestguess, radius=0.01 * u.deg, criteria="otype = 'Galaxy..'")#, equinox='J2000.0')
                     except:
                         table_simbad = False
                         print("---> WARNING: Simbad timeout")
@@ -337,7 +341,7 @@ class alerce_tns(Alerce):
             if simbad:
                 try:
                     self.info.value = "Querying Simbad..."
-                    table_simbad = customSimbad.query_region(co, radius=0.01 * u.deg)#, equinox='J2000.0')   
+                    table_simbad = customSimbad.query_region(co, radius=0.01 * u.deg, criteria="otype = 'Galaxy..'")#, equinox='J2000.0')   
                     if table_simbad:
                         table_simbad["cat_name"] = Column(["Simbad"], name="cat_name")
                         self.aladin.add_table(table_simbad)
@@ -462,23 +466,23 @@ class alerce_tns(Alerce):
                             hostdata["candidate_host_redshift_spec"] = True
                         hostdata["candidate_host_redshift_type"] = data["Redshift Flag"]
         elif data["cat_name"] == "Simbad":
-            coords = coordinates.SkyCoord("%s %s" % (data["RA"], data["DEC"]), unit=(u.hourangle, u.deg), frame='icrs')
+            coords = coordinates.SkyCoord("%s %s" % (data["ra"], data["dec"]), unit=(u.hourangle, u.deg), frame='icrs')
             hostdata["candidate_host_ra"] = coords.ra / u.deg
             hostdata["candidate_host_dec"] = coords.dec / u.deg
-            hostdata["candidate_host_name"] = data["MAIN_ID"]
+            hostdata["candidate_host_name"] = data["main_id"]
             hostdata["candidate_host_redshift_spec"] = False
-            if "Z_VALUE" in data.keys():
-                if not data["Z_VALUE"] in ["nan", "-99", "-999.0", "-9999.0"]:
-                    hostdata["candidate_host_redshift"] = data["Z_VALUE"]
-                    if data["RVZ_ERROR"] != "nan": # based on experience, we only trust Simbad redshifts if they have an associated error
+            if "rvz_redshift" in data.keys():
+                if not data["rvz_redshift"] in ["nan", "-99", "-999.0", "-9999.0"]:
+                    hostdata["candidate_host_redshift"] = data["rvz_redshift"]
+                    if data["rvz_err"] != "nan": # based on experience, we only trust Simbad redshifts if they have an associated error
                         hostdata["candidate_host_redshift_spec"] = True
-                        if data["RVZ_TYPE"] == "z":
-                            hostdata["candidate_host_redshift_error"] = data["RVZ_ERROR"]
-                        elif data["RVZ_TYPE"] == "v":
+                        if data["rvz_type"] == "z":
+                            hostdata["candidate_host_redshift_error"] = data["rvz_err"]
+                        elif data["rvz_type"] == "v":
                             cspeed = 299792. # km/s
-                            hostdata["candidate_host_redshift_error"] = data["RVZ_ERROR"] / cspeed
-                    if "RVZ_QUAL" in data.keys():
-                        hostdata["candidate_host_redshift_type"] = data["RVZ_QUAL"]  # this assumes that Simbad only returns spectroscopic redshifts
+                            hostdata["candidate_host_redshift_error"] = data["rvz_err"] / cspeed
+                    if "rvz_qual" in data.keys():
+                        hostdata["candidate_host_redshift_type"] = data["rvz_qual"]  # this assumes that Simbad only returns spectroscopic redshifts
         elif data["cat_name"] == "SDSSDR16":
 
             objid = data["objid"]
@@ -608,7 +612,7 @@ class alerce_tns(Alerce):
             if key in data["data"].keys():
                 if data["data"][key] in ['nan', '']:
                     continue
-                if re.compile('.*redshift|specz|z_value.*', re.IGNORECASE).match(key):
+                if re.compile('.*redshift|specz|rvz_redshift.*', re.IGNORECASE).match(key):
                     output += "<tr><th><font size='3' color='red'>%s: %s</font></th></tr>" % (key, data["data"][key])
                 if re.compile('.*photoz.*', re.IGNORECASE).match(key):
                     output += "<tr><th><font size='3' color='orange'>%s: %s</font></th></tr>" % (key, data["data"][key])
