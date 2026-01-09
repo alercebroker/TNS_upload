@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF25acctbaz,2MFGC 3714,68.38083333333333,68.33222222222221,3.633388012035988,0.9910933367111865,2.8723670425348775,Simbad,False,--,NULL,

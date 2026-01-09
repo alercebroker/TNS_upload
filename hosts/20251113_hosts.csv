@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF25aceffvo,WISEA J115715.57-080841.3,179.31489,-8.14481,2.113308882202822,1.0859775042045736,1.0434480275173095,NED,False,0.018306,NULL,SLS

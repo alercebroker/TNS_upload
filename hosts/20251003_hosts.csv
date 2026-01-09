@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF25abvnrxq,LEDA 1152964,151.22089999999997,-0.058113888888888895,9.09013591286965,1.6331670602203323,8.124987848063393,Simbad,True,0.02148,1.9999999494757503e-05,C

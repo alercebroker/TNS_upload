@@ -1,0 +1,4 @@
+oid,index,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF25aapprgd,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+ZTF25aapofng,1,WISEA J195057.21+423932.3,297.73838,42.65899,1.8057151144373311,0.6715516447429041,1.1616865822161655,NED,False,0.068917,NULL,PUN
+ZTF25aapkbhn,2,WISEA J203027.25+073125.9,307.61357,7.52388,1.7072974114172397,2.669608772523696,4.329831323341068,NED,False,NULL,NULL,NULL

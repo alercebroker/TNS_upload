@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF25aabxywm,SDSS J071652.72+670640.0,109.219674973231,67.111133968465,12.07176706264228,2.581587161827447,9.53457712766482,SDSSDR16,False,0.019126,0.006714,photoz

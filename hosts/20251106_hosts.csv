@@ -1,0 +1,3 @@
+oid,level_0,index,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF25accydqn,0,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+ZTF25accmunu,1,1,LEDA  911560,150.78506416666664,-15.411890277777776,10.400468105235696,0.7454047881949354,9.65517272046114,Simbad,True,0.03281,NULL,D

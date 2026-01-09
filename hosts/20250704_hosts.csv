@@ -1,0 +1,5 @@
+oid,index,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF25aazivum,0,SDSS J172217.03+585151.4,260.570963147909,58.8642888382407,1.7605632683178265,0.3621544830443143,1.4413954128845383,SDSSDR16,False,0.09393,0.027062,photoz
+ZTF25aayzxba,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+ZTF25aayvxes,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+ZTF25aaxfevs,3,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL

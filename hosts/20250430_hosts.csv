@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF25aaoxrmn,UGC 11209,275.39691,26.93813,7.743932604990689,1.0681910639208676,8.78055157641069,NED,False,NULL,NULL,NULL

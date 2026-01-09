@@ -1,0 +1,2 @@
+oid,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF24abfxhta,GALEXASC J000417.05-083830.4,1.07071,-8.64189,15.359979899909016,0.3845864441829863,15.27161519632154,NED,False,0.0282,NULL,SUN

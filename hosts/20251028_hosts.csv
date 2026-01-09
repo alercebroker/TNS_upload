@@ -1,0 +1,3 @@
+oid,index,host_name,host_ra,host_dec,host_offset,host_offset_bestguess,bestguess_offset,host_source,host_redshift_spec,host_redshift,host_redshift_error,host_redshift_type
+ZTF25acajztg,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+ZTF25abzpfks,1,SDSS J220304.03-084602.5,330.766786444455,-8.76737980282691,0.4179430093555349,0.0228411424656064,0.4316439245346621,SDSSDR16,False,0.117299,0.012804,photoz
